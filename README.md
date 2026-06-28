@@ -1,14 +1,25 @@
-# Rust Loot Organizer Live - v1.1.2
+# Rust Loot Organizer Live - v1.2-test
 
 Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Database.
 
 ## Test-before-live workflow
 
-Alle nye ændringer skal laves og testes på en test-branch først. Live-versionen ligger på:
+Alle nye ændringer skal laves og testes på en test-branch først. Denne version ligger på:
 
-`main`
+`test/v1.2-complete-item-registry`
 
 Merge ikke til `main`, før test-versionen er godkendt. GitHub Pages live-siden deployer stadig fra `main`.
+
+## Hvad er ændret i v1.2-test
+
+v1.2-test udvider den centrale `ITEM_REGISTRY`:
+
+- 225 kendte Rust items på tværs af resources, ammo, weapons, meds, components, tools, electrical, raid, keycards, armor/clothing, food, building, deployables, vehicles, farming, traps/defense og misc
+- canonical Rust `rustName` bruges som stabilt engelsk item-navn
+- danske labels viser kendte Rust-udtryk uden at over-oversætte, fx `Scrap`, `Low Grade Fuel`, `CCTV-kamera`, `TC` og `C4`
+- aliases søger på både dansk, engelsk, gamle navne og korte gruppe-ord som `svovl`, `patroner`, `træ`, `tc`, `wb1`, `turret` og `c4`
+- Min/Max, stack-size, kategori og missing guide hentes fra registry-data
+- gamle imports/Firebase items uden `itemId` matches mod `rustName`, `daName`, `enName`, ID og aliases
 
 ## Hvad er ændret i v1.1.2
 
@@ -91,6 +102,33 @@ Hvis man vælger `Pistol Bullet` fra forslagene, sættes `itemId`, `Ammo`, `Min 
 
 To-do listen viser items hvor `Nuværende < Min` / `Current < Min`, inklusive manglende antal og `Hop til box` / `Jump to box`.
 
+## Item registry
+
+Alle kendte items bor centralt i `ITEM_REGISTRY` i `app.js`.
+
+Hvert item skal have:
+
+- `id`: stabil lowercase snake_case, må ikke ændres efter release
+- `rustName`: canonical Rust item name
+- `daName`: dansk visningsnavn
+- `enName`: sættes automatisk til `rustName`
+- `categoryId`: en af de centrale kategori-ID'er
+- `aliases`: danske/engelske søgeord og gamle navne
+- `minAmount` / `maxAmount`: standardmål til autofill
+- `stackSize`: bruges af `+ stack`
+- valgfri guide-data via `guideDef(...)`
+
+Når et nyt item tilføjes, skal det tilføjes i `ITEM_REGISTRY` og ikke som et løst navn andre steder. Standard setup og storage generator bør referere til item `id`, så visning, kategori, Min/Max, print, export/import og autocomplete fortsat styres af registry.
+
+Aliases er normaliserede, så søgning tåler store/små bogstaver, æ/ø/å-varianter og gamle gruppenavne. Ukendte custom items bliver ikke tvunget ind i registry og bevares som custom navn.
+
+Migration ved load/import:
+
+- eksisterende `itemId` bevares, hvis ID'et findes i registry
+- manglende `itemId` matches mod `rustName`, `daName`, `enName`, dansk label og aliases
+- gamle felter som `itemName`, `originalName`, `rustName`, `limit`, `current` og `amount` håndteres defensivt
+- ukendte custom items bevares med originalt navn og egen kategori/note
+
 ## Live sync
 
 Firebase Realtime Database bruges stadig uden Firebase Authentication.
@@ -122,7 +160,7 @@ Print viser box navn, box type, slots, item, current/min/max, missing to min og 
 
 ## Brug
 
-1. Åbn GitHub Pages-siden.
+1. Åbn test-preview.
 2. Vælg `Dansk` eller `English`.
 3. Skriv dit navn.
 4. Generér eller indtast en gruppe-kode.
@@ -135,7 +173,7 @@ Print viser box navn, box type, slots, item, current/min/max, missing to min og 
 
 Hvis andre ikke kan forbinde:
 
-1. Tjek at GitHub Pages har version-label `v1.1.2`.
+1. Tjek at test-preview har version-label `v1.2-test`.
 2. Bed dem trykke Ctrl+F5 eller åbne linket i inkognito.
 3. Tjek at reglerne fra `database.rules.json` er published i Firebase.
 4. Tjek at alle bruger præcis samme gruppe-link eller samme gruppe-kode.

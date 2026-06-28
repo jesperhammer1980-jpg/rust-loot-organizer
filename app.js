@@ -3,7 +3,7 @@ import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstati
 
 const LOCAL_SETTINGS_KEY = "rust-loot-live-settings-v2";
 const LOCAL_LANGUAGE_KEY = "rust-loot-language-v1";
-const APP_VERSION = "v1.1.2";
+const APP_VERSION = "v1.2-test";
 const LAYOUT_PRESET_VERSION = "v0.8";
 const RECOMMENDED_MIN_SLOTS = 360;
 const MAX_AUTOCOMPLETE_RESULTS = 8;
@@ -346,18 +346,23 @@ const I18N = {
 };
 
 const CATEGORY_DEFS = [
-  { id: "farm", da: "Farm", en: "Farming", aliases: ["farming", "resources", "ressourcer"] },
-  { id: "ammo", da: "Ammo", en: "Ammunition", aliases: ["ammunition"] },
+  { id: "resources", da: "Ressourcer", en: "Resources", aliases: ["farm", "farming", "ressourcer", "resource"] },
+  { id: "ammo", da: "Ammo", en: "Ammunition", aliases: ["ammunition", "patroner", "ammo"] },
   { id: "weapons", da: "Våben", en: "Weapons", aliases: ["weapon", "våben", "vaaben"] },
-  { id: "medical", da: "Meds", en: "Medical", aliases: ["medical/food", "meds", "healing", "medicin"] },
+  { id: "meds", da: "Meds", en: "Medical", aliases: ["medical", "medical/food", "healing", "medicin"] },
   { id: "components", da: "Components", en: "Components", aliases: ["componenter"] },
-  { id: "tools", da: "Tools", en: "Tools", aliases: ["byggeri", "building", "tool"] },
+  { id: "tools", da: "Tools", en: "Tools", aliases: ["tool"] },
   { id: "electrical", da: "Elektronik", en: "Electrical", aliases: ["el", "electric", "electronics"] },
-  { id: "raid", da: "Raid", en: "Raid", aliases: ["explosives"] },
-  { id: "cards", da: "Cards / Keycards", en: "Cards / Keycards", aliases: ["cards/fuses", "cards", "fuses", "keycards", "kort"] },
-  { id: "armor", da: "Tøj / Armor", en: "Armor / Clothing", aliases: ["tøj/armor", "toj/armor", "clothing", "clothes", "armor"] },
+  { id: "raid", da: "Raid", en: "Raid", aliases: ["explosives", "raid loot"] },
+  { id: "keycards", da: "Cards / Keycards", en: "Cards / Keycards", aliases: ["cards", "cards/fuses", "fuses", "cards / keycards", "kort"] },
+  { id: "armor_clothing", da: "Tøj / Armor", en: "Armor / Clothing", aliases: ["armor", "tøj/armor", "toj/armor", "clothing", "clothes"] },
   { id: "food", da: "Food", en: "Food", aliases: ["mad"] },
-  { id: "other", da: "Diverse", en: "Other", aliases: ["andet", "misc"] }
+  { id: "building", da: "Byggeri", en: "Building", aliases: ["byggeri", "base", "building"] },
+  { id: "deployables", da: "Deployables", en: "Deployables", aliases: ["deployable", "placerbare"] },
+  { id: "vehicles", da: "Køretøjer", en: "Vehicles", aliases: ["vehicle", "transport", "cars", "boats", "køretøjer", "koeretoejer"] },
+  { id: "farming", da: "Farming", en: "Farming", aliases: ["planter", "plants", "seeds", "dyrkning"] },
+  { id: "traps_defense", da: "Traps / Defense", en: "Traps / Defense", aliases: ["traps", "defense", "forsvar", "turrets"] },
+  { id: "misc", da: "Diverse", en: "Misc", aliases: ["other", "andet", "misc"] }
 ];
 
 const categories = CATEGORY_DEFS.map(category => category.id);
@@ -392,151 +397,10 @@ const recommendedStorageCounts = {
   "vending-machine": 0
 };
 
-const defaultItemRanges = new Map(Object.entries({
-  "stone": { minAmount: 10000, maxAmount: 30000 },
-  "wood": { minAmount: 5000, maxAmount: 20000 },
-  "metal fragments": { minAmount: 5000, maxAmount: 15000 },
-  "metal ore": { minAmount: 5000, maxAmount: 15000 },
-  "sulfur": { minAmount: 2500, maxAmount: 10000 },
-  "sulfur ore": { minAmount: 2500, maxAmount: 10000 },
-  "charcoal": { minAmount: 2500, maxAmount: 10000 },
-  "gunpowder": { minAmount: 1000, maxAmount: 5000 },
-  "gun powder": { minAmount: 1000, maxAmount: 5000 },
-  "pistol bullets": { minAmount: 128, maxAmount: 512 },
-  "5.56 ammo": { minAmount: 128, maxAmount: 512 },
-  "5.56 rifle ammo": { minAmount: 128, maxAmount: 512 },
-  "shotgun shells": { minAmount: 64, maxAmount: 256 },
-  "handmade shells": { minAmount: 64, maxAmount: 256 },
-  "buckshot": { minAmount: 64, maxAmount: 256 },
-  "arrows": { minAmount: 64, maxAmount: 256 },
-  "syringe": { minAmount: 20, maxAmount: 60 },
-  "medical syringe": { minAmount: 20, maxAmount: 60 },
-  "bandage": { minAmount: 30, maxAmount: 100 },
-  "medkit": { minAmount: 4, maxAmount: 20 },
-  "large medkit": { minAmount: 4, maxAmount: 20 },
-  "low grade fuel": { minAmount: 500, maxAmount: 2000 },
-  "cloth": { minAmount: 500, maxAmount: 3000 },
-  "animal fat": { minAmount: 200, maxAmount: 1000 },
-  "gears": { minAmount: 10, maxAmount: 50 },
-  "metal pipe": { minAmount: 10, maxAmount: 50 },
-  "road signs": { minAmount: 10, maxAmount: 50 },
-  "sheet metal": { minAmount: 10, maxAmount: 50 },
-  "springs": { minAmount: 10, maxAmount: 50 },
-  "metal spring": { minAmount: 10, maxAmount: 50 },
-  "tech trash": { minAmount: 5, maxAmount: 30 },
-  "scrap": { minAmount: 500, maxAmount: 3000 },
-  "high quality metal": { minAmount: 50, maxAmount: 300 },
-  "high quality metal ore": { minAmount: 50, maxAmount: 300 },
-  "cctv camera": { minAmount: 2, maxAmount: 10 },
-  "targeting computer": { minAmount: 2, maxAmount: 10 },
-  "fuse": { minAmount: 5, maxAmount: 20 },
-  "electric fuse": { minAmount: 5, maxAmount: 20 },
-  "green card": { minAmount: 2, maxAmount: 10 },
-  "green keycard": { minAmount: 2, maxAmount: 10 },
-  "blue card": { minAmount: 2, maxAmount: 10 },
-  "blue keycard": { minAmount: 2, maxAmount: 10 },
-  "red card": { minAmount: 1, maxAmount: 5 },
-  "red keycard": { minAmount: 1, maxAmount: 5 },
-  "leather": { minAmount: 200, maxAmount: 1000 },
-  "bow": { minAmount: 1, maxAmount: 4 },
-  "crossbow": { minAmount: 1, maxAmount: 4 },
-  "revolver": { minAmount: 1, maxAmount: 4 },
-  "semi-auto rifle": { minAmount: 1, maxAmount: 4 },
-  "python": { minAmount: 1, maxAmount: 3 },
-  "custom smg": { minAmount: 1, maxAmount: 4 },
-  "thompson": { minAmount: 1, maxAmount: 4 },
-  "hazmat suit": { minAmount: 2, maxAmount: 8 },
-  "metal facemask": { minAmount: 2, maxAmount: 8 },
-  "metal chestplate": { minAmount: 2, maxAmount: 8 },
-  "pickaxe": { minAmount: 2, maxAmount: 8 },
-  "hatchet": { minAmount: 2, maxAmount: 8 },
-  "jackhammer": { minAmount: 1, maxAmount: 4 },
-  "satchel charge": { minAmount: 4, maxAmount: 20 },
-  "explosive ammo": { minAmount: 64, maxAmount: 256 },
-  "rocket": { minAmount: 2, maxAmount: 12 },
-  "c4": { minAmount: 1, maxAmount: 6 }
-}).map(([name, range]) => [normalizeItemKey(name), range]));
-
-const commonItemCatalog = [
-  { name: "Stone", category: "Farm" },
-  { name: "Wood", category: "Farm" },
-  { name: "Metal ore", category: "Farm" },
-  { name: "Metal fragments", category: "Farm" },
-  { name: "Sulfur ore", category: "Farm" },
-  { name: "Sulfur", category: "Raid" },
-  { name: "Charcoal", category: "Raid" },
-  { name: "Gunpowder", category: "Raid" },
-  { name: "Scrap", category: "Components" },
-  { name: "High Quality Metal", category: "Components" },
-  { name: "Cloth", category: "Medical/Food" },
-  { name: "Leather", category: "Tøj/Armor" },
-  { name: "Animal Fat", category: "Medical/Food" },
-  { name: "Low Grade Fuel", category: "Medical/Food" },
-  { name: "Pistol Bullets", category: "Ammo" },
-  { name: "5.56 Ammo", category: "Ammo" },
-  { name: "Shotgun Shells", category: "Ammo" },
-  { name: "Arrows", category: "Ammo" },
-  { name: "Syringe", category: "Medical/Food" },
-  { name: "Bandage", category: "Medical/Food" },
-  { name: "Medkit", category: "Medical/Food" },
-  { name: "Gears", category: "Components" },
-  { name: "Metal Pipe", category: "Components" },
-  { name: "Road Signs", category: "Components" },
-  { name: "Sheet Metal", category: "Components" },
-  { name: "Springs", category: "Components" },
-  { name: "Tech Trash", category: "Components" },
-  { name: "CCTV Camera", category: "Elektronik" },
-  { name: "Targeting Computer", category: "Elektronik" },
-  { name: "Fuse", category: "Cards/Fuses" },
-  { name: "Green Card", category: "Cards/Fuses" },
-  { name: "Blue Card", category: "Cards/Fuses" },
-  { name: "Red Card", category: "Cards/Fuses" },
-  { name: "Bow", category: "Våben" },
-  { name: "Crossbow", category: "Våben" },
-  { name: "Revolver", category: "Våben" },
-  { name: "Semi-Auto Rifle", category: "Våben" },
-  { name: "Python", category: "Våben" },
-  { name: "Custom SMG", category: "Våben" },
-  { name: "Thompson", category: "Våben" },
-  { name: "Hazmat Suit", category: "Tøj/Armor" },
-  { name: "Metal Facemask", category: "Tøj/Armor" },
-  { name: "Metal Chestplate", category: "Tøj/Armor" },
-  { name: "Pickaxe", category: "Farm" },
-  { name: "Hatchet", category: "Farm" },
-  { name: "Jackhammer", category: "Farm" },
-  { name: "Satchel Charge", category: "Raid" },
-  { name: "Explosive Ammo", category: "Raid" },
-  { name: "Rocket", category: "Raid" },
-  { name: "C4", category: "Raid" }
-];
-
-const itemCatalog = new Map(commonItemCatalog.map(item => [normalizeItemKey(item.name), item]));
-
-const stackSizes = new Map(Object.entries({
-  "stone": 1000,
-  "wood": 1000,
-  "metal fragments": 1000,
-  "sulfur": 1000,
-  "sulfur ore": 1000,
-  "metal ore": 1000,
-  "charcoal": 1000,
-  "gun powder": 1000,
-  "pistol bullets": 128,
-  "5.56 ammo": 128,
-  "5.56 rifle ammo": 128,
-  "arrows": 64,
-  "handmade shells": 64,
-  "buckshot": 64,
-  "syringe": 2,
-  "medical syringe": 2,
-  "bandage": 3,
-  "low grade fuel": 500
-}).map(([name, amount]) => [normalizeItemKey(name), amount]));
-
 const GUIDE_BY_CATEGORY = {
-  farm: {
-    da: { bestSource: "Farm nodes, træer, dyr eller barrels afhængigt af itemet", alternativeSources: "Recycle, outpost-handel eller loot crates afhængigt af serveren", tip: "Depotér ofte og fordel farm-loot i tydelige bokse.", riskLevel: "Lav/Mellem" },
-    en: { bestSource: "Farm nodes, trees, animals, or barrels depending on the item", alternativeSources: "Recycling, outpost trades, or loot crates depending on the server", tip: "Depot often and keep farming loot in clearly named boxes.", riskLevel: "Low/Medium" }
+  resources: {
+    da: { bestSource: "Farm nodes, træer, dyr eller barrels afhængigt af itemet", alternativeSources: "Recycle, Outpost-handel eller loot crates afhængigt af serveren", tip: "Depotér ofte og fordel ressourcer i tydelige bokse.", riskLevel: "Lav/Mellem" },
+    en: { bestSource: "Farm nodes, trees, animals, or barrels depending on the item", alternativeSources: "Recycling, Outpost trades, or loot crates depending on the server", tip: "Depot often and keep resources in clearly named boxes.", riskLevel: "Low/Medium" }
   },
   ammo: {
     da: { bestSource: "Craft ved workbench når blueprint/resources er klar", alternativeSources: "Ammo crates, scientists og monument loot", tip: "Hold ammo adskilt fra våben, og gem nok gunpowder til raids.", riskLevel: "Mellem" },
@@ -546,7 +410,7 @@ const GUIDE_BY_CATEGORY = {
     da: { bestSource: "Craft, loot crates eller PvP afhængigt af våbnet", alternativeSources: "Research og craft når blueprint er lært", tip: "Marker klare kits og hold våben tæt på ammo-boksen.", riskLevel: "Mellem/Høj" },
     en: { bestSource: "Crafting, loot crates, or PvP depending on the weapon", alternativeSources: "Research and craft once the blueprint is learned", tip: "Mark ready kits and keep weapons near the ammo box.", riskLevel: "Medium/High" }
   },
-  medical: {
+  meds: {
     da: { bestSource: "Medical crates, scientists og monuments", alternativeSources: "Craft hvis blueprint og resources er klar", tip: "Hold meds ved udgange og i kit-bokse.", riskLevel: "Mellem" },
     en: { bestSource: "Medical crates, scientists, and monuments", alternativeSources: "Crafting if blueprint and resources are ready", tip: "Keep meds near exits and kit boxes.", riskLevel: "Medium" }
   },
@@ -566,11 +430,11 @@ const GUIDE_BY_CATEGORY = {
     da: { bestSource: "Craft fra sulfur, charcoal, gun powder og explosives", alternativeSources: "Locked crates, elite crates og raid-loot", tip: "Raid-loot bør ligge dybt i basen og have tydelige limits.", riskLevel: "Høj" },
     en: { bestSource: "Craft from sulfur, charcoal, gun powder, and explosives", alternativeSources: "Locked crates, elite crates, and raid loot", tip: "Raid loot should sit deep in base with clear limits.", riskLevel: "High" }
   },
-  cards: {
+  keycards: {
     da: { bestSource: "Monuments og keycard progression", alternativeSources: "Loot boxes og køb/handel afhængigt af serveren", tip: "Hold cards og fuses samlet til monument-runs.", riskLevel: "Mellem" },
     en: { bestSource: "Monuments and keycard progression", alternativeSources: "Loot boxes and buying/trading depending on the server", tip: "Keep cards and fuses together for monument runs.", riskLevel: "Medium" }
   },
-  armor: {
+  armor_clothing: {
     da: { bestSource: "Craft, loot crates eller PvP", alternativeSources: "Recycle/craft fra components og cloth/leather", tip: "Lav klare kit-bokse med armor, våben, ammo og meds.", riskLevel: "Mellem/Høj" },
     en: { bestSource: "Crafting, loot crates, or PvP", alternativeSources: "Recycle/craft from components and cloth/leather", tip: "Build clear kit boxes with armor, weapons, ammo, and meds.", riskLevel: "Medium/High" }
   },
@@ -578,101 +442,272 @@ const GUIDE_BY_CATEGORY = {
     da: { bestSource: "Farming, dyr, skove og food crates", alternativeSources: "Bandit/Outpost handel eller player farms", tip: "Hold food tæt på udgange og respawn-kits.", riskLevel: "Lav" },
     en: { bestSource: "Farming, animals, forests, and food crates", alternativeSources: "Bandit/Outpost trades or player farms", tip: "Keep food near exits and respawn kits.", riskLevel: "Low" }
   },
-  other: {
+  building: {
+    da: { bestSource: "Craft fra resources eller køb afhængigt af itemet", alternativeSources: "Loot crates og recycling-ruter", tip: "Hold TC, locks, doors og workbenches tæt på base core.", riskLevel: "Lav/Mellem" },
+    en: { bestSource: "Craft from resources or buy depending on the item", alternativeSources: "Loot crates and recycling routes", tip: "Keep TC, locks, doors, and workbenches near base core.", riskLevel: "Low/Medium" }
+  },
+  deployables: {
+    da: { bestSource: "Craft eller find i crates afhængigt af itemet", alternativeSources: "Recycle/loot og monument-runs", tip: "Sorter deployables efter base, smeltning, research og storage.", riskLevel: "Lav/Mellem" },
+    en: { bestSource: "Craft or find in crates depending on the item", alternativeSources: "Recycling/looting and monument runs", tip: "Sort deployables by base, smelting, research, and storage.", riskLevel: "Low/Medium" }
+  },
+  vehicles: {
+    da: { bestSource: "Roadside loot, vehicle parts crates og crafting", alternativeSources: "Køb/loot afhængigt af serveren", tip: "Low Grade Fuel og reservedele bør ligge ved garage/boat base.", riskLevel: "Mellem" },
+    en: { bestSource: "Roadside loot, vehicle parts crates, and crafting", alternativeSources: "Buying/looting depending on the server", tip: "Low Grade Fuel and spare parts belong near garage/boat base.", riskLevel: "Medium" }
+  },
+  farming: {
+    da: { bestSource: "Farming, food crates og plant seeds", alternativeSources: "Player farms eller foraging", tip: "Hold frø, food og vand samlet hvis I farmer planter.", riskLevel: "Lav" },
+    en: { bestSource: "Farming, food crates, and plant seeds", alternativeSources: "Player farms or foraging", tip: "Keep seeds, food, and water together when running planters.", riskLevel: "Low" }
+  },
+  traps_defense: {
+    da: { bestSource: "Craft efter research eller find i crates", alternativeSources: "High-tier monuments og PvP loot", tip: "Defense-items skal markeres med Min så basen altid kan repareres.", riskLevel: "Mellem/Høj" },
+    en: { bestSource: "Craft after research or find in crates", alternativeSources: "High-tier monuments and PvP loot", tip: "Track defense items with Min so the base can always be repaired.", riskLevel: "Medium/High" }
+  },
+  misc: {
     da: { bestSource: "Afhænger af serveren", alternativeSources: "Tilføj egen note for jeres wipe", tip: "Custom items virker stadig og syncer live.", riskLevel: "Ukendt" },
     en: { bestSource: "Depends on the server", alternativeSources: "Add a custom note for your wipe", tip: "Custom items still work and sync live.", riskLevel: "Unknown" }
   }
 };
 
 const ITEM_REGISTRY = [
-  itemDef("stone", "Stone", "Sten", "farm", 20000, 30000, 1000, ["sten"]),
-  itemDef("wood", "Wood", "Træ", "farm", 10000, 20000, 1000, ["trae", "træ"]),
-  itemDef("metal_ore", "Metal Ore", "Metalmalm", "farm", 5000, 15000, 1000, ["metalmalm"]),
-  itemDef("metal_fragments", "Metal Fragments", "Metalfragmenter", "farm", 10000, 20000, 1000, ["metal fragments", "metalfragmenter", "frags"]),
-  itemDef("sulfur_ore", "Sulfur Ore", "Svovlmalm", "farm", 5000, 10000, 1000, ["svovlmalm"]),
-  itemDef("sulfur", "Sulfur", "Svovl", "raid", 5000, 10000, 1000, ["svovl"]),
-  itemDef("charcoal", "Charcoal", "Trækul", "raid", 5000, 10000, 1000, ["traekul", "trækul"]),
-  itemDef("high_quality_metal_ore", "High Quality Metal Ore", "HQM-malm", "farm", 50, 300, 1000, ["hqm ore", "hqm-malm"]),
-  itemDef("high_quality_metal", "High Quality Metal", "High Quality Metal", "farm", 50, 300, 100, ["hqm"]),
-  itemDef("cloth", "Cloth", "Stof", "medical", 500, 3000, 1000, ["stof"]),
-  itemDef("leather", "Leather", "Læder", "armor", 200, 1000, 1000, ["laeder", "læder"]),
-  itemDef("animal_fat", "Animal Fat", "Dyrefedt", "medical", 200, 1000, 1000, ["dyrefedt"]),
-  itemDef("low_grade_fuel", "Low Grade Fuel", "Low Grade Fuel", "farm", 500, 2000, 500, ["lgf"]),
-  itemDef("scrap", "Scrap", "Scrap", "components", 500, 3000, 1000, []),
+  itemDef("stone", "Stone", "Sten", "resources", 20000, 30000, 1000, ["sten"], guideDef("Stone nodes ved klipper, bjerge og stenede områder", "Stone nodes near rocks, mountains, and rocky areas", "Små sten-pickups fra jorden", "Small stone pickups from the ground", "Brug pickaxe og følg glimtpunktet på noden.", "Use a pickaxe and follow the node sparkle.", "Lav", "Low")),
+  itemDef("wood", "Wood", "Træ", "resources", 10000, 20000, 1000, ["trae", "træ", "wooden"], guideDef("Træer", "Trees", "Stumps eller Outpost-handel hvis serveren tillader det", "Stumps or Outpost trades if the server allows it", "Hatchet, Salvaged Axe og Chainsaw gør wood-farm hurtigere.", "Hatchet, Salvaged Axe, and Chainsaw speed up wood farming.", "Lav", "Low")),
+  itemDef("metal_ore", "Metal Ore", "Metalmalm", "resources", 5000, 15000, 1000, ["metalmalm", "metal node"], guideDef("Metal nodes", "Metal nodes", "Mining quarry eller loot afhængigt af serveren", "Mining quarry or loot depending on the server", "Smelt i furnace til Metal Fragments.", "Smelt in a furnace into Metal Fragments.", "Lav/Mellem", "Low/Medium")),
+  itemDef("metal_fragments", "Metal Fragments", "Metalfragmenter", "resources", 10000, 20000, 1000, ["metal fragments", "metalfragmenter", "frags", "metal frags"], guideDef("Smelt Metal Ore i furnace", "Smelt Metal Ore in a furnace", "Recycle components, loot crates og barrels", "Recycle components, loot crates, and barrels", "Hold nok til doors, upkeep, ammo og workbenches.", "Keep enough for doors, upkeep, ammo, and workbenches.", "Lav/Mellem", "Low/Medium")),
+  itemDef("sulfur_ore", "Sulfur Ore", "Svovlmalm", "resources", 5000, 10000, 1000, ["svovlmalm", "sulfur node"], guideDef("Sulfur nodes", "Sulfur nodes", "Mining quarry hvis serveren bruger det", "Mining quarry if your server uses it", "Sulfur er raid-materiale, så depotér ofte.", "Sulfur is raid material, so depot often.", "Mellem", "Medium")),
+  itemDef("sulfur", "Sulfur", "Svovl", "resources", 5000, 10000, 1000, ["svovl"], guideDef("Smelt Sulfur Ore i furnace", "Smelt Sulfur Ore in a furnace", "Raid loot og quarries afhængigt af serveren", "Raid loot and quarries depending on the server", "Bruges til Gun Powder og explosives.", "Used for Gun Powder and explosives.", "Mellem/Høj", "Medium/High")),
+  itemDef("charcoal", "Charcoal", "Trækul", "resources", 5000, 10000, 1000, ["traekul", "trækul", "kul"], guideDef("Brænd Wood i furnace/camp fire", "Burn Wood in a furnace/camp fire", "Loot i små mængder", "Small amounts from loot", "Charcoal + Sulfur bliver til Gun Powder.", "Charcoal + Sulfur becomes Gun Powder.", "Lav", "Low")),
+  itemDef("high_quality_metal_ore", "High Quality Metal Ore", "HQM-malm", "resources", 50, 300, 1000, ["hqm ore", "hqm-malm", "hq ore"]),
+  itemDef("high_quality_metal", "High Quality Metal", "High Quality Metal", "resources", 50, 300, 100, ["hqm", "hq metal"], guideDef("Smelt HQM ore eller recycle high-end components", "Smelt HQM ore or recycle high-end components", "Military/elite crates", "Military/elite crates", "Bruges til turrets, våben, armor og avancerede deployables.", "Used for turrets, weapons, armor, and advanced deployables.", "Mellem/Høj", "Medium/High")),
+  itemDef("cloth", "Cloth", "Cloth", "resources", 500, 3000, 1000, ["stof", "hemp", "hamp"]),
+  itemDef("leather", "Leather", "Læder", "resources", 200, 1000, 1000, ["laeder", "læder"]),
+  itemDef("animal_fat", "Animal Fat", "Dyrefedt", "resources", 200, 1000, 1000, ["dyrefedt", "fat"]),
+  itemDef("low_grade_fuel", "Low Grade Fuel", "Low Grade Fuel", "resources", 500, 2000, 500, ["lgf", "fuel", "brændstof", "braendstof"], guideDef("Craft af Animal Fat + Cloth eller loot red barrels", "Craft from Animal Fat + Cloth or loot red barrels", "Oil Refinery med Crude Oil", "Oil Refinery with Crude Oil", "Bruges til furnace, meds, flamethrower og køretøjer.", "Used for furnaces, meds, flamethrower, and vehicles.", "Lav/Mellem", "Low/Medium")),
+  itemDef("scrap", "Scrap", "Scrap", "components", 500, 3000, 1000, ["skrot"], guideDef("Barrels langs veje og recycle components", "Road barrels and recycling components", "Monuments, crates og safe recycling ved Outpost", "Monuments, crates, and safe recycling at Outpost", "Depotér scrap ofte og sortér research-items.", "Depot scrap often and sort research items.", "Mellem", "Medium")),
+  itemDef("bone_fragments", "Bone Fragments", "Bone Fragments", "resources", 200, 1000, 1000, ["bones", "knogler", "bone"]),
+  itemDef("crude_oil", "Crude Oil", "Crude Oil", "resources", 50, 500, 500, ["oil", "råolie", "raolie"]),
+  itemDef("diesel_fuel", "Diesel Fuel", "Diesel Fuel", "resources", 0, 0, 20, ["diesel"]),
 
-  itemDef("pistol_bullet", "Pistol Bullet", "Pistolpatroner", "ammo", 128, 512, 128, ["pistol bullets", "pistolpatroner", "patroner"]),
-  itemDef("556_rifle_ammo", "5.56 Rifle Ammo", "5.56-riffelammunition", "ammo", 128, 512, 128, ["5.56 ammo", "556 ammo", "5.56", "5.56 ammunition"]),
-  itemDef("handmade_shell", "Handmade Shell", "Hjemmelavet haglpatron", "ammo", 64, 256, 64, ["handmade shells", "hjemmelavet haglpatron"]),
-  itemDef("12_gauge_buckshot", "12 Gauge Buckshot", "12 gauge buckshot", "ammo", 64, 256, 64, ["buckshot", "shotgun shells"]),
-  itemDef("12_gauge_slug", "12 Gauge Slug", "12 gauge slug", "ammo", 32, 128, 32, ["slug", "slugs"]),
-  itemDef("wooden_arrow", "Wooden Arrow", "Træpile", "ammo", 64, 256, 64, ["arrows", "wood arrows", "træpile", "traepile"]),
-  itemDef("high_velocity_arrow", "High Velocity Arrow", "High velocity pile", "ammo", 64, 256, 64, ["hv arrow", "hv arrows"]),
+  itemDef("pistol_bullet", "Pistol Bullet", "Pistolpatroner", "ammo", 128, 512, 128, ["pistol bullets", "pistol ammo", "pistolpatroner", "patroner", "ammo"], guideDef("Craft ved workbench med Metal Fragments + Gun Powder", "Craft at a workbench with Metal Fragments + Gun Powder", "Ammo crates, scientists og monuments", "Ammo crates, scientists, and monuments", "Pistol Bullet er basis-ammo til tidlig PvP.", "Pistol Bullet is basic ammo for early PvP.", "Mellem", "Medium")),
+  itemDef("556_rifle_ammo", "5.56 Rifle Ammo", "5.56 Rifle Ammo", "ammo", 128, 512, 128, ["5.56 ammo", "556 ammo", "5.56", "rifle ammo", "ak ammo"], guideDef("Craft ved workbench når blueprint er lært", "Craft at a workbench once researched", "Military crates, locked crates og scientists", "Military crates, locked crates, and scientists", "Bruges til SAR, AK, LR, L96 og M249.", "Used by SAR, AK, LR, L96, and M249.", "Mellem/Høj", "Medium/High")),
+  itemDef("explosive_556_rifle_ammo", "Explosive 5.56 Rifle Ammo", "Explosive 5.56 Rifle Ammo", "ammo", 64, 256, 128, ["explosive ammo", "expo ammo", "explosive 556", "eksplosiv 5.56"]),
+  itemDef("hv_556_rifle_ammo", "HV 5.56 Rifle Ammo", "HV 5.56 Rifle Ammo", "ammo", 64, 256, 128, ["hv 556", "high velocity 556", "hv ammo"]),
+  itemDef("incendiary_556_rifle_ammo", "Incendiary 5.56 Rifle Ammo", "Incendiary 5.56 Rifle Ammo", "ammo", 64, 256, 128, ["incen 556", "fire 556", "brand 5.56"]),
+  itemDef("handmade_shell", "Handmade Shell", "Hjemmelavet haglpatron", "ammo", 64, 256, 64, ["handmade shells", "hjemmelavet haglpatron", "haglammo"]),
+  itemDef("12_gauge_buckshot", "12 Gauge Buckshot", "12 Gauge Buckshot", "ammo", 64, 256, 64, ["buckshot", "shotgun shells", "haglpatroner"]),
+  itemDef("12_gauge_slug", "12 Gauge Slug", "12 Gauge Slug", "ammo", 32, 128, 32, ["slug", "slugs"]),
+  itemDef("12_gauge_incendiary_shell", "12 Gauge Incendiary Shell", "12 Gauge Incendiary Shell", "ammo", 32, 128, 32, ["incendiary shell", "fire shell", "brand hagl"]),
+  itemDef("wooden_arrow", "Wooden Arrow", "Træpile", "ammo", 64, 256, 64, ["arrows", "wood arrows", "træpile", "traepile", "pile"]),
+  itemDef("high_velocity_arrow", "High Velocity Arrow", "High Velocity Arrow", "ammo", 64, 256, 64, ["hv arrow", "hv arrows"]),
   itemDef("fire_arrow", "Fire Arrow", "Ildpile", "ammo", 32, 128, 64, ["fire arrows", "ildpile"]),
-  itemDef("rocket", "Rocket", "Raket", "raid", 2, 12, 3, ["raket"]),
-  itemDef("high_velocity_rocket", "High Velocity Rocket", "High velocity raket", "raid", 2, 12, 3, ["hv rocket", "hv rockets"]),
-  itemDef("incendiary_rocket", "Incendiary Rocket", "Brandraket", "raid", 2, 12, 3, ["fire rocket", "brandraket"]),
-  itemDef("explosive_556_rifle_ammo", "Explosive 5.56 Rifle Ammo", "Eksplosiv 5.56-ammunition", "raid", 64, 256, 128, ["explosive ammo", "expo ammo", "explosive 556", "eksplosiv 5.56"]),
-
-  itemDef("bandage", "Bandage", "Bandage", "medical", 30, 100, 3, []),
-  itemDef("medical_syringe", "Medical Syringe", "Medical Syringe", "medical", 20, 60, 2, ["syringe", "syringes"]),
-  itemDef("large_medkit", "Large Medkit", "Stor førstehjælpskasse", "medical", 4, 20, 1, ["medkit", "large med kit", "stor førstehjælpskasse"]),
-  itemDef("anti_radiation_pills", "Anti-Radiation Pills", "Strålingspiller", "medical", 5, 20, 10, ["anti-rad pills", "anti rad pills", "strålingspiller", "straalingspiller"]),
-
-  itemDef("gears", "Gears", "Tandhjul", "components", 10, 50, 20, ["tandhjul"]),
-  itemDef("metal_pipe", "Metal Pipe", "Metalrør", "components", 10, 50, 20, ["metal pipes", "metalrør", "metalroer"]),
-  itemDef("road_signs", "Road Signs", "Vejskilte", "components", 10, 50, 20, ["road signs", "vejskilte"]),
-  itemDef("sheet_metal", "Sheet Metal", "Plademetal", "components", 10, 50, 20, ["plademetal"]),
-  itemDef("metal_spring", "Metal Spring", "Metalfjeder", "components", 10, 50, 20, ["springs", "metal springs", "metalfjeder"]),
-  itemDef("tech_trash", "Tech Trash", "Tech Trash", "components", 5, 30, 20, []),
-  itemDef("rope", "Rope", "Reb", "components", 10, 50, 50, ["reb"]),
-  itemDef("sewing_kit", "Sewing Kit", "Sy-kit", "components", 10, 50, 20, ["sy-kit", "sykit"]),
-  itemDef("tarp", "Tarp", "Presenning", "components", 10, 50, 20, ["presenning"]),
-  itemDef("semi_automatic_body", "Semi Automatic Body", "Semi-auto body", "components", 2, 10, 10, ["semi-auto body", "semi auto body"]),
-  itemDef("smg_body", "SMG Body", "SMG body", "components", 2, 10, 10, []),
-  itemDef("rifle_body", "Rifle Body", "Rifle body", "components", 2, 10, 10, []),
-  itemDef("cctv_camera", "CCTV Camera", "CCTV-kamera", "electrical", 2, 10, 64, ["cctv", "cctv-kamera"]),
-  itemDef("targeting_computer", "Targeting Computer", "Targeting Computer", "electrical", 2, 10, 64, []),
-  itemDef("electric_fuse", "Electric Fuse", "Sikring", "cards", 5, 20, 10, ["fuse", "fuses", "sikring"]),
+  itemDef("bone_arrow", "Bone Arrow", "Bone Arrow", "ammo", 64, 256, 64, ["bone arrows", "benpile"]),
+  itemDef("rocket", "Rocket", "Rocket", "ammo", 2, 12, 3, ["raket"], guideDef("Craft fra pipes, explosives og gun powder", "Craft from pipes, explosives, and gun powder", "Locked crates og raid loot", "Locked crates and raid loot", "Hold rockets i raid-boks med tydelig adgang.", "Keep rockets in a raid box with clear access rules.", "Høj", "High")),
+  itemDef("high_velocity_rocket", "High Velocity Rocket", "High Velocity Rocket", "ammo", 2, 12, 3, ["hv rocket", "hv rockets"]),
+  itemDef("incendiary_rocket", "Incendiary Rocket", "Incendiary Rocket", "ammo", 2, 12, 3, ["fire rocket", "brandraket"]),
+  itemDef("smoke_rocket", "Smoke Rocket", "Smoke Rocket", "ammo", 0, 0, 3, ["smoke rockets"]),
 
   itemDef("hunting_bow", "Hunting Bow", "Jagtbue", "weapons", 1, 4, 1, ["bow", "jagtbue"]),
   itemDef("crossbow", "Crossbow", "Armbrøst", "weapons", 1, 4, 1, ["armbrøst", "armbroest"]),
+  itemDef("compound_bow", "Compound Bow", "Compound Bow", "weapons", 1, 4, 1, ["compound"]),
+  itemDef("nailgun", "Nailgun", "Nailgun", "weapons", 1, 4, 1, ["nail gun"]),
   itemDef("revolver", "Revolver", "Revolver", "weapons", 1, 4, 1, []),
-  itemDef("semi_automatic_pistol", "Semi-Automatic Pistol", "Semi-automatisk pistol", "weapons", 1, 4, 1, ["semi automatic pistol", "sap"]),
+  itemDef("semi_automatic_pistol", "Semi-Automatic Pistol", "Semi-Automatic Pistol", "weapons", 1, 4, 1, ["semi automatic pistol", "sap", "p2"]),
   itemDef("python_revolver", "Python Revolver", "Python Revolver", "weapons", 1, 3, 1, ["python"]),
-  itemDef("semi_automatic_rifle", "Semi-Automatic Rifle", "Semi-automatisk riffel", "weapons", 1, 4, 1, ["semi-auto rifle", "semi auto rifle", "sar"]),
+  itemDef("prototype_17", "Prototype 17", "Prototype 17", "weapons", 0, 0, 1, ["proto 17"]),
+  itemDef("m92_pistol", "M92 Pistol", "M92 Pistol", "weapons", 1, 3, 1, ["m92"]),
   itemDef("custom_smg", "Custom SMG", "Custom SMG", "weapons", 1, 4, 1, []),
   itemDef("thompson", "Thompson", "Thompson", "weapons", 1, 4, 1, []),
+  itemDef("mp5a4", "MP5A4", "MP5A4", "weapons", 1, 3, 1, ["mp5"]),
+  itemDef("semi_automatic_rifle", "Semi-Automatic Rifle", "Semi-Automatic Rifle", "weapons", 1, 4, 1, ["semi-auto rifle", "semi auto rifle", "sar"]),
+  itemDef("assault_rifle", "Assault Rifle", "Assault Rifle", "weapons", 1, 3, 1, ["ak", "ak47", "ak-47"]),
+  itemDef("lr_300_assault_rifle", "LR-300 Assault Rifle", "LR-300 Assault Rifle", "weapons", 1, 3, 1, ["lr300", "lr"]),
+  itemDef("bolt_action_rifle", "Bolt Action Rifle", "Bolt Action Rifle", "weapons", 1, 3, 1, ["bolt"]),
+  itemDef("l96_rifle", "L96 Rifle", "L96 Rifle", "weapons", 1, 2, 1, ["l96"]),
+  itemDef("m39_rifle", "M39 Rifle", "M39 Rifle", "weapons", 1, 3, 1, ["m39"]),
+  itemDef("pump_shotgun", "Pump Shotgun", "Pump Shotgun", "weapons", 1, 3, 1, ["shotgun", "pumpy"]),
+  itemDef("double_barrel_shotgun", "Double Barrel Shotgun", "Double Barrel Shotgun", "weapons", 1, 3, 1, ["db", "double barrel"]),
+  itemDef("waterpipe_shotgun", "Waterpipe Shotgun", "Waterpipe Shotgun", "weapons", 1, 3, 1, ["waterpipe"]),
+  itemDef("spas_12_shotgun", "Spas-12 Shotgun", "Spas-12 Shotgun", "weapons", 1, 2, 1, ["spas", "spas12"]),
+  itemDef("eoka_pistol", "Eoka Pistol", "Eoka Pistol", "weapons", 1, 4, 1, ["eoka"]),
+  itemDef("m249", "M249", "M249", "weapons", 0, 0, 1, []),
+  itemDef("rocket_launcher", "Rocket Launcher", "Rocket Launcher", "weapons", 1, 2, 1, ["launcher"]),
+  itemDef("grenade_launcher", "Grenade Launcher", "Grenade Launcher", "weapons", 0, 0, 1, []),
+  itemDef("flame_thrower", "Flame Thrower", "Flame Thrower", "weapons", 1, 2, 1, ["flamethrower"]),
+
+  itemDef("bandage", "Bandage", "Bandage", "meds", 30, 100, 3, ["meds"], guideDef("Craft af Cloth", "Craft from Cloth", "Medical crates", "Medical crates", "Billig healing, men lav langsigtet nok syringes.", "Cheap healing, but build toward enough syringes.", "Lav", "Low")),
+  itemDef("medical_syringe", "Medical Syringe", "Medical Syringe", "meds", 20, 60, 2, ["syringe", "syringes", "meds"], guideDef("Medical crates, scientists og monuments", "Medical crates, scientists, and monuments", "Craft hvis blueprint og resources er klar", "Craft if blueprint and resources are ready", "Prioritér medical crates ved Supermarket, Gas Station og Sewer Branch.", "Prioritize medical crates at Supermarket, Gas Station, and Sewer Branch.", "Mellem", "Medium")),
+  itemDef("large_medkit", "Large Medkit", "Large Medkit", "meds", 4, 20, 1, ["medkit", "large med kit", "stor førstehjælpskasse", "meds"]),
+  itemDef("anti_radiation_pills", "Anti-Radiation Pills", "Anti-rad pills", "meds", 5, 20, 10, ["anti-rad pills", "anti rad pills", "strålingspiller", "straalingspiller"]),
+
+  itemDef("gears", "Gears", "Gears", "components", 10, 50, 20, ["tandhjul"]),
+  itemDef("metal_pipe", "Metal Pipe", "Metalrør", "components", 10, 50, 20, ["metal pipes", "metalrør", "metalroer"]),
+  itemDef("road_signs", "Road Signs", "Road Signs", "components", 10, 50, 20, ["road signs", "vejskilte"]),
+  itemDef("sheet_metal", "Sheet Metal", "Sheet Metal", "components", 10, 50, 20, ["plademetal"]),
+  itemDef("metal_spring", "Metal Spring", "Metal Spring", "components", 10, 50, 20, ["springs", "metal springs", "metalfjeder"]),
+  itemDef("tech_trash", "Tech Trash", "Tech Trash", "components", 5, 30, 20, []),
+  itemDef("rope", "Rope", "Rope", "components", 10, 50, 50, ["reb"]),
+  itemDef("sewing_kit", "Sewing Kit", "Sewing Kit", "components", 10, 50, 20, ["sy-kit", "sykit"]),
+  itemDef("tarp", "Tarp", "Tarp", "components", 10, 50, 20, ["presenning"]),
+  itemDef("semi_automatic_body", "Semi Automatic Body", "Semi Auto Body", "components", 2, 10, 10, ["semi-auto body", "semi auto body"]),
+  itemDef("smg_body", "SMG Body", "SMG Body", "components", 2, 10, 10, []),
+  itemDef("rifle_body", "Rifle Body", "Rifle Body", "components", 2, 10, 10, []),
+  itemDef("cctv_camera", "CCTV Camera", "CCTV-kamera", "components", 2, 10, 64, ["cctv", "cctv-kamera"], guideDef("Military/elite crates og locked crates", "Military/elite crates and locked crates", "High-tier monuments", "High-tier monuments", "Bruges til Auto Turret og kamera-system.", "Used for Auto Turret and camera systems.", "Høj", "High")),
+  itemDef("targeting_computer", "Targeting Computer", "Targeting Computer", "components", 2, 10, 64, ["target computer"], guideDef("Military/elite crates, locked crates, heli/bradley loot", "Military/elite crates, locked crates, heli/bradley loot", "High-tier monuments", "High-tier monuments", "Kritisk til Auto Turret, så sæt tydeligt Min.", "Critical for Auto Turret, so set a clear Min.", "Høj", "High")),
+  itemDef("electric_fuse", "Electric Fuse", "Electric Fuse", "keycards", 5, 20, 10, ["fuse", "fuses", "sikring"], guideDef("Crates og monument-runs", "Crates and monument runs", "Road/monument loot", "Road/monument loot", "Gem fuses sammen med keycards.", "Keep fuses with keycards.", "Mellem", "Medium")),
+  itemDef("empty_propane_tank", "Empty Propane Tank", "Empty Propane Tank", "components", 5, 30, 5, ["propane tank"]),
+  itemDef("blade", "Blade", "Blade", "components", 10, 50, 20, []),
+  itemDef("metal_blade", "Metal Blade", "Metal Blade", "components", 10, 50, 20, ["metal blades"]),
+  itemDef("duct_tape", "Duct Tape", "Duct Tape", "components", 10, 50, 20, ["tape"]),
+
+  itemDef("rock", "Rock", "Rock", "tools", 0, 0, 1, ["starter rock"]),
+  itemDef("stone_pickaxe", "Stone Pickaxe", "Stone Pickaxe", "tools", 1, 4, 1, []),
+  itemDef("stone_hatchet", "Stone Hatchet", "Stone Hatchet", "tools", 1, 4, 1, []),
   itemDef("pickaxe", "Pickaxe", "Pickaxe", "tools", 2, 8, 1, []),
   itemDef("hatchet", "Hatchet", "Hatchet", "tools", 2, 8, 1, []),
   itemDef("salvaged_axe", "Salvaged Axe", "Salvaged Axe", "tools", 1, 4, 1, []),
+  itemDef("salvaged_icepick", "Salvaged Icepick", "Salvaged Icepick", "tools", 1, 4, 1, ["icepick"]),
   itemDef("jackhammer", "Jackhammer", "Jackhammer", "tools", 1, 4, 1, []),
-  itemDef("chainsaw", "Chainsaw", "Motorsav", "tools", 1, 4, 1, ["motorsav"]),
+  itemDef("chainsaw", "Chainsaw", "Chainsaw", "tools", 1, 4, 1, ["motorsav"]),
+  itemDef("hammer", "Hammer", "Hammer", "tools", 2, 6, 1, []),
+  itemDef("building_plan", "Building Plan", "Building Plan", "tools", 2, 6, 1, ["bp", "build plan"]),
+  itemDef("wire_tool", "Wire Tool", "Wire Tool", "tools", 1, 4, 1, ["wire"]),
+  itemDef("hose_tool", "Hose Tool", "Hose Tool", "tools", 0, 0, 1, ["hose"]),
+  itemDef("rf_transmitter", "RF Transmitter", "RF Transmitter", "tools", 0, 0, 1, ["rf"]),
+  itemDef("rf_pager", "RF Pager", "RF Pager", "tools", 0, 0, 1, []),
+  itemDef("binoculars", "Binoculars", "Binoculars", "tools", 0, 0, 1, []),
+  itemDef("flashlight", "Flashlight", "Flashlight", "tools", 1, 4, 1, ["torch light"]),
 
-  itemDef("hazmat_suit", "Hazmat Suit", "Hazmat Suit", "armor", 2, 8, 1, []),
-  itemDef("metal_facemask", "Metal Facemask", "Metal Facemask", "armor", 2, 8, 1, []),
-  itemDef("metal_chest_plate", "Metal Chest Plate", "Metal Chest Plate", "armor", 2, 8, 1, ["metal chestplate"]),
-  itemDef("road_sign_jacket", "Road Sign Jacket", "Road Sign Jacket", "armor", 2, 8, 1, []),
-  itemDef("road_sign_kilt", "Road Sign Kilt", "Road Sign Kilt", "armor", 2, 8, 1, []),
-  itemDef("hoodie", "Hoodie", "Hoodie", "armor", 2, 8, 1, []),
-  itemDef("pants", "Pants", "Bukser", "armor", 2, 8, 1, ["bukser"]),
-  itemDef("boots", "Boots", "Støvler", "armor", 2, 8, 1, ["støvler", "stoevler"]),
-  itemDef("gloves", "Gloves", "Handsker", "armor", 2, 8, 1, ["handsker"]),
+  itemDef("large_solar_panel", "Large Solar Panel", "Large Solar Panel", "electrical", 1, 6, 3, ["solar panel", "solpanel"]),
+  itemDef("wind_turbine", "Wind Turbine", "Wind Turbine", "electrical", 1, 4, 1, []),
+  itemDef("small_rechargeable_battery", "Small Rechargeable Battery", "Small Battery", "electrical", 1, 6, 1, ["small battery"]),
+  itemDef("medium_rechargeable_battery", "Medium Rechargeable Battery", "Medium Battery", "electrical", 1, 6, 1, ["medium battery"]),
+  itemDef("large_rechargeable_battery", "Large Rechargeable Battery", "Large Battery", "electrical", 1, 4, 1, ["large battery"]),
+  itemDef("electrical_branch", "Electrical Branch", "Electrical Branch", "electrical", 2, 12, 5, ["branch"]),
+  itemDef("root_combiner", "Root Combiner", "Root Combiner", "electrical", 1, 8, 5, []),
+  itemDef("splitter", "Splitter", "Splitter", "electrical", 2, 12, 5, []),
+  itemDef("switch", "Switch", "Switch", "electrical", 2, 12, 5, []),
+  itemDef("timer", "Timer", "Timer", "electrical", 0, 0, 5, []),
+  itemDef("counter", "Counter", "Counter", "electrical", 0, 0, 5, []),
+  itemDef("memory_cell", "Memory Cell", "Memory Cell", "electrical", 0, 0, 5, []),
+  itemDef("xor_switch", "XOR Switch", "XOR Switch", "electrical", 0, 0, 5, []),
+  itemDef("and_switch", "AND Switch", "AND Switch", "electrical", 0, 0, 5, []),
+  itemDef("or_switch", "OR Switch", "OR Switch", "electrical", 0, 0, 5, []),
+  itemDef("blocker", "Blocker", "Blocker", "electrical", 0, 0, 5, []),
+  itemDef("door_controller", "Door Controller", "Door Controller", "electrical", 2, 12, 5, []),
+  itemDef("hbhf_sensor", "HBHF Sensor", "HBHF Sensor", "electrical", 0, 0, 1, ["heartbeat sensor"]),
+  itemDef("laser_detector", "Laser Detector", "Laser Detector", "electrical", 0, 0, 5, []),
+  itemDef("pressure_pad", "Pressure Pad", "Pressure Pad", "electrical", 0, 0, 1, []),
+  itemDef("smart_switch", "Smart Switch", "Smart Switch", "electrical", 0, 0, 5, []),
+  itemDef("auto_turret", "Auto Turret", "Auto Turret", "traps_defense", 1, 6, 1, ["turret", "auto turret"], guideDef("Craft med CCTV Camera, Targeting Computer og HQM", "Craft with CCTV Camera, Targeting Computer, and HQM", "Raid/PvP loot eller køb afhængigt af serveren", "Raid/PvP loot or buy depending on server", "Sæt Min efter hvor mange turrets basen mangler.", "Set Min based on how many turrets the base still needs.", "Høj", "High")),
+  itemDef("sam_site", "SAM Site", "SAM Site", "traps_defense", 0, 2, 1, ["sam"]),
+  itemDef("computer_station", "Computer Station", "Computer Station", "electrical", 1, 2, 1, []),
 
-  itemDef("green_keycard", "Green Keycard", "Grønt keycard", "cards", 2, 10, 1, ["green card", "grønt keycard", "groent keycard"]),
-  itemDef("blue_keycard", "Blue Keycard", "Blåt keycard", "cards", 2, 10, 1, ["blue card", "blåt keycard", "blaat keycard"]),
-  itemDef("red_keycard", "Red Keycard", "Rødt keycard", "cards", 1, 5, 1, ["red card", "rødt keycard", "roedt keycard"]),
+  itemDef("gun_powder", "Gun Powder", "Gun Powder", "raid", 1000, 5000, 1000, ["gunpowder", "gp"], guideDef("Craft af Sulfur + Charcoal", "Craft from Sulfur + Charcoal", "Ammo crates og military crates", "Ammo crates and military crates", "Bruges til ammo, satchels, rockets og C4.", "Used for ammo, satchels, rockets, and C4.", "Mellem", "Medium")),
+  itemDef("explosives", "Explosives", "Explosives", "raid", 10, 50, 100, ["explosive"], guideDef("Craft fra sulfur-baseret chain efter research", "Craft from the sulfur chain after research", "Elite/locked crates i små mængder", "Elite/locked crates in small amounts", "Hold C4-materialer separat fra ammo-materialer.", "Keep C4 materials separate from ammo materials.", "Høj", "High")),
+  itemDef("beancan_grenade", "Beancan Grenade", "Beancan Grenade", "raid", 4, 20, 5, ["beancan"]),
+  itemDef("satchel_charge", "Satchel Charge", "Satchel Charge", "raid", 4, 20, 10, ["satchel"], guideDef("Craft fra Beancan Grenade, Rope og Small Stash", "Craft from Beancan Grenade, Rope, and Small Stash", "Raid loot", "Raid loot", "God tidlig raid item, men usikker detonation.", "Good early raid item, but unreliable detonation.", "Høj", "High")),
+  itemDef("timed_explosive_charge", "Timed Explosive Charge", "C4", "raid", 1, 6, 10, ["c4", "timed explosive", "tec"], guideDef("Craft fra Explosives, Tech Trash og Cloth", "Craft from Explosives, Tech Trash, and Cloth", "Locked/elite crates og raid loot", "Locked/elite crates and raid loot", "C4 er high-value. Hold adgang stram.", "C4 is high value. Keep access tight.", "Høj", "High")),
+  itemDef("f1_grenade", "F1 Grenade", "F1 Grenade", "raid", 4, 20, 5, ["grenade"]),
+  itemDef("survey_charge", "Survey Charge", "Survey Charge", "raid", 0, 0, 10, []),
 
-  itemDef("satchel_charge", "Satchel Charge", "Satchel Charge", "raid", 4, 20, 10, []),
-  itemDef("timed_explosive_charge", "Timed Explosive Charge", "C4", "raid", 1, 6, 10, ["c4"]),
-  itemDef("beancan_grenade", "Beancan Grenade", "Beancan Grenade", "raid", 4, 20, 5, []),
-  itemDef("explosives", "Explosives", "Explosives", "raid", 10, 50, 100, []),
-  itemDef("gun_powder", "Gun Powder", "Gunpowder", "raid", 1000, 5000, 1000, ["gunpowder"]),
+  itemDef("green_keycard", "Green Keycard", "Grønt keycard", "keycards", 2, 10, 1, ["green card", "grønt keycard", "groent keycard"], guideDef("Low-tier monuments og loot", "Low-tier monuments and loot", "Køb/handel afhængigt af serveren", "Buying/trading depending on server", "Hold kort og fuses samlet til monument-runs.", "Keep cards and fuses together for monument runs.", "Lav/Mellem", "Low/Medium")),
+  itemDef("blue_keycard", "Blue Keycard", "Blåt keycard", "keycards", 2, 10, 1, ["blue card", "blåt keycard", "blaat keycard"], guideDef("Green-card monuments og progression", "Green-card monuments and progression", "Loot/køb afhængigt af serveren", "Loot/buy depending on server", "Bruges til mellem-tier monuments.", "Used for mid-tier monuments.", "Mellem", "Medium")),
+  itemDef("red_keycard", "Red Keycard", "Rødt keycard", "keycards", 1, 5, 1, ["red card", "rødt keycard", "roedt keycard"], guideDef("Blue-card monuments og progression", "Blue-card monuments and progression", "Loot/køb afhængigt af serveren", "Loot/buy depending on server", "Gem rødt kort sikkert til high-tier monuments.", "Store red cards safely for high-tier monuments.", "Mellem/Høj", "Medium/High")),
+
+  itemDef("hazmat_suit", "Hazmat Suit", "Hazmat Suit", "armor_clothing", 2, 8, 1, ["hazzy"]),
+  itemDef("scientist_suit", "Scientist Suit", "Scientist Suit", "armor_clothing", 0, 0, 1, []),
+  itemDef("hoodie", "Hoodie", "Hoodie", "armor_clothing", 2, 8, 1, []),
+  itemDef("pants", "Pants", "Bukser", "armor_clothing", 2, 8, 1, ["bukser"]),
+  itemDef("boots", "Boots", "Støvler", "armor_clothing", 2, 8, 1, ["støvler", "stoevler"]),
+  itemDef("gloves", "Gloves", "Handsker", "armor_clothing", 2, 8, 1, ["handsker"]),
+  itemDef("road_sign_jacket", "Road Sign Jacket", "Road Sign Jacket", "armor_clothing", 2, 8, 1, []),
+  itemDef("road_sign_kilt", "Road Sign Kilt", "Road Sign Kilt", "armor_clothing", 2, 8, 1, []),
+  itemDef("coffee_can_helmet", "Coffee Can Helmet", "Coffee Can Helmet", "armor_clothing", 2, 8, 1, ["coffee helmet"]),
+  itemDef("metal_facemask", "Metal Facemask", "Metal Facemask", "armor_clothing", 2, 8, 1, []),
+  itemDef("metal_chest_plate", "Metal Chest Plate", "Metal Chest Plate", "armor_clothing", 2, 8, 1, ["metal chestplate"]),
+  itemDef("wolf_headdress", "Wolf Headdress", "Wolf Headdress", "armor_clothing", 0, 0, 1, ["wolf head"]),
+  itemDef("wooden_armor", "Wooden Armor", "Wooden Armor", "armor_clothing", 0, 0, 1, []),
+  itemDef("bone_armor", "Bone Armor", "Bone Armor", "armor_clothing", 0, 0, 1, []),
+  itemDef("heavy_plate_helmet", "Heavy Plate Helmet", "Heavy Plate Helmet", "armor_clothing", 0, 0, 1, []),
+  itemDef("heavy_plate_jacket", "Heavy Plate Jacket", "Heavy Plate Jacket", "armor_clothing", 0, 0, 1, []),
+  itemDef("heavy_plate_pants", "Heavy Plate Pants", "Heavy Plate Pants", "armor_clothing", 0, 0, 1, []),
+  itemDef("tactical_gloves", "Tactical Gloves", "Tactical Gloves", "armor_clothing", 0, 0, 1, []),
 
   itemDef("corn", "Corn", "Majs", "food", 20, 100, 20, ["majs"]),
   itemDef("pumpkin", "Pumpkin", "Græskar", "food", 20, 100, 10, ["græskar", "graeskar"]),
+  itemDef("potato", "Potato", "Kartoffel", "food", 20, 100, 20, ["kartoffel"]),
   itemDef("mushroom", "Mushroom", "Svamp", "food", 20, 100, 10, ["svamp"]),
   itemDef("apple", "Apple", "Æble", "food", 20, 100, 10, ["æble", "aeble"]),
-  itemDef("cooked_meat", "Cooked Meat", "Tilberedt kød", "food", 20, 100, 20, ["tilberedt kød", "tilberedt koed"])
+  itemDef("blueberries", "Blueberries", "Blueberries", "food", 20, 100, 20, ["berries", "blåbær", "blaabaer"]),
+  itemDef("black_raspberries", "Black Raspberries", "Black Raspberries", "food", 20, 100, 20, ["raspberries", "hindbær", "hindbaer"]),
+  itemDef("cooked_meat", "Cooked Meat", "Cooked Meat", "food", 20, 100, 20, ["tilberedt kød", "tilberedt koed"]),
+  itemDef("raw_meat", "Raw Meat", "Raw Meat", "food", 0, 0, 20, []),
+  itemDef("human_meat", "Human Meat", "Human Meat", "food", 0, 0, 20, []),
+  itemDef("small_water_bottle", "Small Water Bottle", "Small Water Bottle", "food", 0, 0, 1, ["water bottle"]),
+  itemDef("water_jug", "Water Jug", "Water Jug", "food", 1, 4, 1, []),
+  itemDef("water", "Water", "Vand", "food", 0, 0, 1000, ["vand"]),
+  itemDef("seeds", "Seeds", "Seeds", "farming", 0, 0, 50, ["frø", "froe"]),
+  itemDef("hemp_seed", "Hemp Seed", "Hemp Seed", "farming", 10, 50, 50, ["hemp seeds", "hampfrø", "hampfroe"]),
+  itemDef("corn_seed", "Corn Seed", "Corn Seed", "farming", 10, 50, 50, ["corn seeds"]),
+  itemDef("pumpkin_seed", "Pumpkin Seed", "Pumpkin Seed", "farming", 10, 50, 50, ["pumpkin seeds"]),
+  itemDef("potato_seed", "Potato Seed", "Potato Seed", "farming", 10, 50, 50, ["potato seeds"]),
+  itemDef("large_planter_box", "Large Planter Box", "Large Planter Box", "farming", 0, 0, 1, ["planter box", "planter"]),
+  itemDef("small_planter_box", "Small Planter Box", "Small Planter Box", "farming", 0, 0, 1, ["small planter"]),
+
+  itemDef("tool_cupboard", "Tool Cupboard", "TC", "building", 1, 2, 1, ["tc", "cupboard"], guideDef("Craft fra Wood", "Craft from Wood", "Raid/base loot", "Raid/base loot", "TC er base core. Hold altid en backup hvis I bygger nyt.", "TC is base core. Keep a backup if you expand.", "Høj", "High")),
+  itemDef("wooden_door", "Wooden Door", "Wooden Door", "building", 2, 10, 1, []),
+  itemDef("sheet_metal_door", "Sheet Metal Door", "Sheet Metal Door", "building", 2, 10, 1, ["metal door"]),
+  itemDef("armored_door", "Armored Door", "Armored Door", "building", 1, 6, 1, []),
+  itemDef("garage_door", "Garage Door", "Garage Door", "building", 1, 6, 1, []),
+  itemDef("code_lock", "Code Lock", "Code Lock", "building", 4, 20, 1, ["code locks"]),
+  itemDef("key_lock", "Key Lock", "Key Lock", "building", 0, 0, 1, []),
+  itemDef("sleeping_bag", "Sleeping Bag", "Sleeping Bag", "deployables", 2, 10, 1, ["bag"]),
+  itemDef("bed", "Bed", "Bed", "deployables", 0, 0, 1, []),
+  itemDef("wooden_storage_box", "Wooden Storage Box", "Lille boks", "deployables", 0, 0, 1, ["small box", "lille boks"]),
+  itemDef("large_wood_box", "Large Wood Box", "Stor boks", "deployables", 0, 0, 1, ["large box", "stor boks"]),
+  itemDef("small_stash", "Small Stash", "Small Stash", "deployables", 0, 0, 1, ["stash"]),
+  itemDef("furnace", "Furnace", "Furnace", "deployables", 2, 8, 1, []),
+  itemDef("large_furnace", "Large Furnace", "Large Furnace", "deployables", 0, 0, 1, []),
+  itemDef("oil_refinery", "Oil Refinery", "Oil Refinery", "deployables", 0, 0, 1, ["refinery"]),
+  itemDef("workbench_level_1", "Workbench Level 1", "Workbench level 1", "deployables", 1, 2, 1, ["work bench level 1", "wb1", "workbench 1", "workbench level 1"]),
+  itemDef("workbench_level_2", "Workbench Level 2", "Workbench level 2", "deployables", 1, 2, 1, ["work bench level 2", "wb2", "workbench 2", "workbench level 2"]),
+  itemDef("workbench_level_3", "Workbench Level 3", "Workbench level 3", "deployables", 1, 1, 1, ["work bench level 3", "wb3", "workbench 3", "workbench level 3"]),
+  itemDef("repair_bench", "Repair Bench", "Repair Bench", "deployables", 1, 2, 1, []),
+  itemDef("research_table", "Research Table", "Research Table", "deployables", 1, 2, 1, []),
+  itemDef("mixing_table", "Mixing Table", "Mixing Table", "deployables", 1, 2, 1, []),
+  itemDef("locker", "Locker", "Locker", "deployables", 0, 0, 1, []),
+  itemDef("fridge", "Fridge", "Køleskab", "deployables", 0, 0, 1, ["køleskab", "koeleskab"]),
+  itemDef("drop_box", "Drop Box", "Drop Box", "deployables", 0, 0, 1, []),
+  itemDef("vending_machine", "Vending Machine", "Vending Machine", "deployables", 0, 0, 1, []),
+  itemDef("camp_fire", "Camp Fire", "Camp Fire", "deployables", 0, 0, 1, ["campfire"]),
+  itemDef("lantern", "Lantern", "Lantern", "deployables", 0, 0, 1, []),
+  itemDef("tuna_can_lamp", "Tuna Can Lamp", "Tuna Can Lamp", "deployables", 0, 0, 1, []),
+
+  itemDef("shotgun_trap", "Shotgun Trap", "Shotgun Trap", "traps_defense", 1, 6, 1, []),
+  itemDef("flame_turret", "Flame Turret", "Flame Turret", "traps_defense", 1, 4, 1, []),
+  itemDef("wooden_spike_trap", "Wooden Spike Trap", "Wooden Spike Trap", "traps_defense", 0, 0, 1, []),
+  itemDef("land_mine", "Land Mine", "Land Mine", "traps_defense", 0, 0, 5, ["mine"]),
+  itemDef("snap_trap", "Snap Trap", "Snap Trap", "traps_defense", 0, 0, 1, []),
+
+  itemDef("low_quality_carburetor", "Low Quality Carburetor", "Low Quality Carburetor", "vehicles", 0, 0, 5, ["carburetor"]),
+  itemDef("medium_quality_carburetor", "Medium Quality Carburetor", "Medium Quality Carburetor", "vehicles", 0, 0, 5, []),
+  itemDef("high_quality_carburetor", "High Quality Carburetor", "High Quality Carburetor", "vehicles", 0, 0, 5, []),
+  itemDef("low_quality_crankshaft", "Low Quality Crankshaft", "Low Quality Crankshaft", "vehicles", 0, 0, 5, ["crankshaft"]),
+  itemDef("medium_quality_crankshaft", "Medium Quality Crankshaft", "Medium Quality Crankshaft", "vehicles", 0, 0, 5, []),
+  itemDef("high_quality_crankshaft", "High Quality Crankshaft", "High Quality Crankshaft", "vehicles", 0, 0, 5, []),
+  itemDef("low_quality_pistons", "Low Quality Pistons", "Low Quality Pistons", "vehicles", 0, 0, 5, ["pistons"]),
+  itemDef("medium_quality_pistons", "Medium Quality Pistons", "Medium Quality Pistons", "vehicles", 0, 0, 5, []),
+  itemDef("high_quality_pistons", "High Quality Pistons", "High Quality Pistons", "vehicles", 0, 0, 5, []),
+  itemDef("low_quality_spark_plugs", "Low Quality Spark Plugs", "Low Quality Spark Plugs", "vehicles", 0, 0, 5, ["spark plugs"]),
+  itemDef("medium_quality_spark_plugs", "Medium Quality Spark Plugs", "Medium Quality Spark Plugs", "vehicles", 0, 0, 5, []),
+  itemDef("high_quality_spark_plugs", "High Quality Spark Plugs", "High Quality Spark Plugs", "vehicles", 0, 0, 5, []),
+  itemDef("low_quality_valves", "Low Quality Valves", "Low Quality Valves", "vehicles", 0, 0, 5, ["valves"]),
+  itemDef("medium_quality_valves", "Medium Quality Valves", "Medium Quality Valves", "vehicles", 0, 0, 5, []),
+  itemDef("high_quality_valves", "High Quality Valves", "High Quality Valves", "vehicles", 0, 0, 5, []),
+  itemDef("kayak", "Kayak", "Kayak", "vehicles", 0, 0, 1, []),
+
+  itemDef("note", "Note", "Note", "misc", 0, 0, 1, []),
+  itemDef("paper", "Paper", "Paper", "misc", 0, 0, 1000, []),
+  itemDef("blueprint", "Blueprint", "Blueprint", "misc", 0, 0, 1, ["bp item", "blueprints"])
 ];
 
 const itemRegistry = new Map(ITEM_REGISTRY.map(item => [item.id, item]));
@@ -690,255 +725,97 @@ ITEM_REGISTRY.forEach(item => {
 
 const layoutBoxRecipes = {
   plenty: [
-    { name: "Farm — Stone", category: "Farm", items: ["Stone"], role: "Primær" },
-    { name: "Farm — Wood", category: "Farm", items: ["Wood", "Low Grade Fuel"], role: "Primær" },
-    { name: "Farm — Metal", category: "Farm", items: ["Metal Ore", "Metal Fragments", "High Quality Metal"], role: "Primær" },
-    { name: "Farm — Sulfur", category: "Farm", items: ["Sulfur Ore", "Sulfur", "Charcoal"], role: "Primær" },
-    { name: "Components 1", category: "Components", items: ["Scrap", "Gears", "Metal Pipe", "Road Signs"], role: "Primær" },
-    { name: "Components 2", category: "Components", items: ["Sheet Metal", "Metal Spring", "Tech Trash"], role: "Backup" },
-    { name: "Ammo", category: "Ammo", items: ["Pistol Bullets", "5.56 Ammo", "Shotgun Shells", "Arrows", "Gunpowder"], role: "Primær" },
-    { name: "Weapons", category: "Våben", items: ["Revolver", "Semi-Auto Rifle", "Shotgun", "Bue/Crossbow"], role: "Primær" },
-    { name: "Meds", category: "Medical/Food", items: ["Syringe", "Bandage", "Medkit", "Cloth", "Animal Fat"], role: "Primær" },
-    { name: "Tools", category: "Byggeri", items: ["Tool Cupboard", "Hammer", "Building Plan", "Doors", "Code Locks"], role: "Primær" },
-    { name: "Electrical", category: "Elektronik", items: ["CCTV Camera", "Targeting Computer", "Auto Turret", "Wire Tool"], role: "Primær" },
-    { name: "Raid", category: "Raid", items: ["Gunpowder", "Explosive Ammo", "Rocket", "C4"], role: "Primær" },
-    { name: "Cards", category: "Cards/Fuses", items: ["Green Card", "Blue Card", "Red Card", "Fuse"], role: "Primær" }
+    { name: "Farm — Stone", category: "resources", items: ["stone"], role: "Primær" },
+    { name: "Farm — Wood", category: "resources", items: ["wood", "low_grade_fuel"], role: "Primær" },
+    { name: "Farm — Metal", category: "resources", items: ["metal_ore", "metal_fragments", "high_quality_metal"], role: "Primær" },
+    { name: "Farm — Sulfur", category: "resources", items: ["sulfur_ore", "sulfur", "charcoal"], role: "Primær" },
+    { name: "Components 1", category: "components", items: ["scrap", "gears", "metal_pipe", "road_signs"], role: "Primær" },
+    { name: "Components 2", category: "components", items: ["sheet_metal", "metal_spring", "tech_trash"], role: "Backup" },
+    { name: "Ammo", category: "ammo", items: ["pistol_bullet", "556_rifle_ammo", "12_gauge_buckshot", "wooden_arrow", "gun_powder"], role: "Primær" },
+    { name: "Weapons", category: "weapons", items: ["revolver", "semi_automatic_rifle", "pump_shotgun", "crossbow"], role: "Primær" },
+    { name: "Meds", category: "meds", items: ["medical_syringe", "bandage", "large_medkit", "cloth", "animal_fat"], role: "Primær" },
+    { name: "Tools", category: "building", items: ["tool_cupboard", "hammer", "building_plan", "sheet_metal_door", "code_lock"], role: "Primær" },
+    { name: "Electrical", category: "electrical", items: ["cctv_camera", "targeting_computer", "auto_turret", "wire_tool"], role: "Primær" },
+    { name: "Raid", category: "raid", items: ["gun_powder", "explosive_556_rifle_ammo", "rocket", "timed_explosive_charge"], role: "Primær" },
+    { name: "Cards", category: "keycards", items: ["green_keycard", "blue_keycard", "red_keycard", "electric_fuse"], role: "Primær" }
   ],
   limited: [
-    { name: "Farm", category: "Farm", items: ["Stone", "Wood", "Metal Ore", "Metal Fragments", "Sulfur Ore", "Sulfur", "Charcoal", "Low Grade Fuel"], role: "Primær" },
-    { name: "Components", category: "Components", items: ["Scrap", "Gears", "Metal Pipe", "Road Signs", "Sheet Metal", "Metal Spring", "Tech Trash"], role: "Primær" },
-    { name: "Ammo / Weapons", category: "Ammo", items: ["Pistol Bullets", "5.56 Ammo", "Shotgun Shells", "Arrows", "Gunpowder", "Revolver", "Semi-Auto Rifle"], role: "Primær" },
-    { name: "Meds / Food / Clothes", category: "Medical/Food", items: ["Syringe", "Bandage", "Medkit", "Cloth", "Animal Fat"], role: "Primær" },
-    { name: "Tools / Electrical", category: "Elektronik", items: ["Tool Cupboard", "Hammer", "Building Plan", "CCTV Camera", "Targeting Computer", "Fuse"], role: "Primær" },
-    { name: "Raid / Cards", category: "Raid", items: ["Gunpowder", "Explosive Ammo", "Rocket", "Green Card", "Blue Card", "Red Card"], role: "Backup" }
+    { name: "Farm", category: "resources", items: ["stone", "wood", "metal_ore", "metal_fragments", "sulfur_ore", "sulfur", "charcoal", "low_grade_fuel"], role: "Primær" },
+    { name: "Components", category: "components", items: ["scrap", "gears", "metal_pipe", "road_signs", "sheet_metal", "metal_spring", "tech_trash"], role: "Primær" },
+    { name: "Ammo / Weapons", category: "ammo", items: ["pistol_bullet", "556_rifle_ammo", "12_gauge_buckshot", "wooden_arrow", "gun_powder", "revolver", "semi_automatic_rifle"], role: "Primær" },
+    { name: "Meds / Food / Clothes", category: "meds", items: ["medical_syringe", "bandage", "large_medkit", "cloth", "animal_fat"], role: "Primær" },
+    { name: "Tools / Electrical", category: "electrical", items: ["tool_cupboard", "hammer", "building_plan", "cctv_camera", "targeting_computer", "electric_fuse"], role: "Primær" },
+    { name: "Raid / Cards", category: "raid", items: ["gun_powder", "explosive_556_rifle_ammo", "rocket", "green_keycard", "blue_keycard", "red_keycard"], role: "Backup" }
   ],
   tiny: [
-    { name: "Mixed farm", category: "Farm", items: ["Stone", "Wood", "Metal Fragments", "Sulfur", "Charcoal"], role: "Primær" },
-    { name: "Mixed combat", category: "Ammo", items: ["Pistol Bullets", "5.56 Ammo", "Syringe", "Bandage", "Revolver"], role: "Primær" },
-    { name: "Mixed components/tools", category: "Components", items: ["Scrap", "Gears", "Metal Pipe", "Sheet Metal", "Tool Cupboard", "Hammer"], role: "Primær" }
+    { name: "Mixed farm", category: "resources", items: ["stone", "wood", "metal_fragments", "sulfur", "charcoal"], role: "Primær" },
+    { name: "Mixed combat", category: "ammo", items: ["pistol_bullet", "556_rifle_ammo", "medical_syringe", "bandage", "revolver"], role: "Primær" },
+    { name: "Mixed components/tools", category: "components", items: ["scrap", "gears", "metal_pipe", "sheet_metal", "tool_cupboard", "hammer"], role: "Primær" }
   ]
 };
-
-const itemGuides = new Map(Object.entries({
-  "stone": {
-    category: "Farm",
-    bestSource: "Stone nodes ved klipper, bjerge og stenede områder",
-    alternativeSources: "Små sten-pickups fra jorden",
-    tip: "Brug stone pickaxe eller pickaxe. Følg glimtpunktet på noden.",
-    riskLevel: "Lav"
-  },
-  "wood": {
-    category: "Farm",
-    bestSource: "Træer",
-    alternativeSources: "Stumps eller handel ved Outpost hvis serveren tillader det",
-    tip: "Brug hatchet eller chainsaw for hurtigere farming.",
-    riskLevel: "Lav"
-  },
-  "metal ore": {
-    category: "Farm",
-    bestSource: "Metal nodes",
-    alternativeSources: "Mining Outpost / quarry hvis serveren bruger det",
-    tip: "Skal smeltes i furnace til metal fragments.",
-    riskLevel: "Lav/Mellem"
-  },
-  "metal fragments": {
-    category: "Farm",
-    bestSource: "Smelt metal ore i furnace",
-    alternativeSources: "Recycle components, loot crates/barrels",
-    tip: "Recycle road signs, sheet metal, metal pipes osv.",
-    riskLevel: "Lav/Mellem"
-  },
-  "sulfur": {
-    category: "Raid",
-    bestSource: "Sulfur nodes",
-    alternativeSources: "Mining quarry hvis serveren bruger det",
-    tip: "Sulfur er raid-materiale, så farm diskret og depotér ofte.",
-    riskLevel: "Mellem"
-  },
-  "sulfur ore": {
-    category: "Farm",
-    bestSource: "Sulfur nodes",
-    alternativeSources: "Mining quarry hvis serveren bruger det",
-    tip: "Sulfur er raid-materiale, så farm diskret og depotér ofte.",
-    riskLevel: "Mellem"
-  },
-  "charcoal": {
-    category: "Farm",
-    bestSource: "Brænd wood i furnace/campfire",
-    alternativeSources: "Loot",
-    tip: "Charcoal + sulfur bruges til gunpowder.",
-    riskLevel: "Lav"
-  },
-  "gunpowder": {
-    category: "Raid",
-    bestSource: "Craft af sulfur + charcoal",
-    alternativeSources: "Ammo crates, military crates",
-    tip: "Bruges til ammo og explosives.",
-    riskLevel: "Mellem"
-  },
-  "gun powder": {
-    category: "Raid",
-    bestSource: "Craft af sulfur + charcoal",
-    alternativeSources: "Ammo crates, military crates",
-    tip: "Bruges til ammo og explosives.",
-    riskLevel: "Mellem"
-  },
-  "pistol bullets": {
-    category: "Ammo",
-    bestSource: "Craft ved workbench med metal fragments + gunpowder",
-    alternativeSources: "Ammo crates, scientists, monuments",
-    tip: "Hvis I mangler gunpowder, farm sulfur og lav charcoal.",
-    riskLevel: "Mellem",
-    requirements: "Workbench, blueprint, metal fragments og gunpowder"
-  },
-  "5.56 ammo": {
-    category: "Ammo",
-    bestSource: "Craft ved workbench når blueprint er lært",
-    alternativeSources: "Military crates, locked crates, scientists",
-    tip: "Bruges til SAR, LR, AK osv.",
-    riskLevel: "Mellem/Høj",
-    requirements: "Workbench og blueprint"
-  },
-  "5.56 rifle ammo": {
-    category: "Ammo",
-    bestSource: "Craft ved workbench når blueprint er lært",
-    alternativeSources: "Military crates, locked crates, scientists",
-    tip: "Bruges til SAR, LR, AK osv.",
-    riskLevel: "Mellem/Høj",
-    requirements: "Workbench og blueprint"
-  },
-  "syringe": {
-    category: "Medical/Food",
-    bestSource: "Medical crates, scientists, monuments",
-    alternativeSources: "Craft hvis blueprint og workbench/resources er klar",
-    tip: "Prioritér medical crates ved Supermarket, Gas Station og Sewer Branch.",
-    riskLevel: "Mellem",
-    monuments: "Supermarket, Gas Station, Sewer Branch"
-  },
-  "medical syringe": {
-    category: "Medical/Food",
-    bestSource: "Medical crates, scientists, monuments",
-    alternativeSources: "Craft hvis blueprint og workbench/resources er klar",
-    tip: "Prioritér medical crates ved Supermarket, Gas Station og Sewer Branch.",
-    riskLevel: "Mellem",
-    monuments: "Supermarket, Gas Station, Sewer Branch"
-  },
-  "bandage": {
-    category: "Medical/Food",
-    bestSource: "Craft af cloth",
-    alternativeSources: "Medical crates",
-    tip: "Cloth fås fra hemp, dyr og recycling af tøj.",
-    riskLevel: "Lav"
-  },
-  "low grade fuel": {
-    category: "Farm",
-    bestSource: "Craft af animal fat + cloth",
-    alternativeSources: "Red barrels, refinery, monuments",
-    tip: "Bruges til furnace, meds og køretøjer afhængigt af server/version.",
-    riskLevel: "Lav/Mellem"
-  },
-  "scrap": {
-    category: "Components",
-    bestSource: "Slå barrels langs veje og recycle components",
-    alternativeSources: "Monuments, crates, safe recycling ved Outpost",
-    tip: "Lav korte ture og depotér scrap ofte.",
-    riskLevel: "Mellem",
-    monuments: "Outpost, veje, monuments"
-  },
-  "high quality metal": {
-    category: "Farm",
-    bestSource: "Recycle high-end components eller smelt HQM ore",
-    alternativeSources: "Military/elite crates",
-    tip: "Bruges til turrets, våben og avancerede ting.",
-    riskLevel: "Mellem/Høj"
-  },
-  "high quality metal ore": {
-    category: "Farm",
-    bestSource: "HQM nodes eller high-tier loot afhængigt af server",
-    alternativeSources: "Military/elite crates",
-    tip: "Smelt HQM ore til high quality metal.",
-    riskLevel: "Mellem/Høj"
-  },
-  "targeting computer": {
-    category: "Elektronik",
-    bestSource: "Military/elite crates, locked crates, helicopter/bradley loot",
-    alternativeSources: "High-tier monuments",
-    tip: "Bruges til Auto Turret.",
-    riskLevel: "Høj",
-    monuments: "Launch Site, Military Tunnels, Oil Rig"
-  },
-  "cctv camera": {
-    category: "Elektronik",
-    bestSource: "Military/elite crates, locked crates",
-    alternativeSources: "High-tier monuments",
-    tip: "Bruges til Auto Turret og kamera-system.",
-    riskLevel: "Høj",
-    monuments: "Launch Site, Military Tunnels, Oil Rig"
-  }
-}).map(([name, guide]) => [normalizeItemKey(name), guide]));
 
 const defaultTemplates = [
   {
     name: "Våben",
-    category: "Våben",
+    category: "weapons",
     location: "Loot room - øverste våbenboks",
-    items: ["Revolver", "Semi-Auto Rifle", "Python", "Thompson", "Shotgun", "Bue/Crossbow", "Melee weapons"],
+    items: ["revolver", "semi_automatic_rifle", "python_revolver", "thompson", "pump_shotgun", "crossbow"],
     notes: "Hold våben og ammo adskilt hvis I ofte bliver doorcamped."
   },
   {
     name: "Ammo",
-    category: "Ammo",
+    category: "ammo",
     location: "Ved siden af våben",
-    items: ["Pistol Bullets", "5.56 Ammo", "Handmade Shells", "Buckshot", "Arrows", "Gun Powder"],
+    items: ["pistol_bullet", "556_rifle_ammo", "handmade_shell", "12_gauge_buckshot", "wooden_arrow", "gun_powder"],
     notes: "Lav ikke al gunpowder om til ammo. Gem noget til raid/eksplosiver."
   },
   {
     name: "Components",
-    category: "Components",
+    category: "components",
     location: "Loot room - recycle boks",
-    items: ["Scrap", "Tech Trash", "Rifle Body", "SMG Body", "Semi-Auto Body", "Metal Spring", "Metal Pipe", "Gears", "Road Signs", "Sheet Metal", "Tarp", "Rope"],
+    items: ["scrap", "tech_trash", "rifle_body", "smg_body", "semi_automatic_body", "metal_spring", "metal_pipe", "gears", "road_signs", "sheet_metal", "tarp", "rope"],
     notes: "Sorter ting der skal researches øverst i boksen."
   },
   {
     name: "Farm",
-    category: "Farm",
+    category: "resources",
     location: "Tæt på furnace room",
-    items: ["Stone", "Metal Ore", "Sulfur Ore", "Wood", "Charcoal", "Low Grade Fuel", "High Quality Metal Ore"],
+    items: ["stone", "metal_ore", "sulfur_ore", "wood", "charcoal", "low_grade_fuel", "high_quality_metal_ore"],
     notes: "Sulfur er raid-magnet. Gem det dybt i basen."
   },
   {
     name: "Byggeri",
-    category: "Byggeri",
+    category: "building",
     location: "Ved TC / base core",
-    items: ["Wood", "Stone", "Metal Fragments", "High Quality Metal", "Doors", "Code Locks", "Tool Cupboard", "Hammer", "Building Plan"],
+    items: ["wood", "stone", "metal_fragments", "high_quality_metal", "sheet_metal_door", "code_lock", "tool_cupboard", "hammer", "building_plan"],
     notes: "Hav altid materialer nok til emergency repairs."
   },
   {
     name: "Raid",
-    category: "Raid",
+    category: "raid",
     location: "Core / låst raid-boks",
-    items: ["Sulfur", "Gun Powder", "Satchel Charge", "Beancan Grenade", "Explosive Ammo", "Rocket", "C4"],
+    items: ["sulfur", "gun_powder", "satchel_charge", "beancan_grenade", "explosive_556_rifle_ammo", "rocket", "timed_explosive_charge"],
     notes: "Skriv tydeligt hvem der må bruge raid-loot."
   },
   {
     name: "Medical / Food",
-    category: "Medical/Food",
+    category: "meds",
     location: "Ved udgang / kits",
-    items: ["Medical Syringe", "Bandage", "Large Medkit", "Anti-Rad Pills", "Food", "Water Jug"],
+    items: ["medical_syringe", "bandage", "large_medkit", "anti_radiation_pills", "corn", "water_jug"],
     notes: "Lav små klar-til-tur kits før I logger ud."
   },
   {
     name: "Cards / Fuses",
-    category: "Cards/Fuses",
+    category: "keycards",
     location: "Lille låst boks i core",
-    items: ["Green Keycard", "Blue Keycard", "Red Keycard", "Electric Fuse", "Flashlight", "Hazmat Suit"],
+    items: ["green_keycard", "blue_keycard", "red_keycard", "electric_fuse", "flashlight", "hazmat_suit"],
     notes: "God boks til monument-runs."
   },
   {
     name: "Elektronik / Turrets",
-    category: "Elektronik",
+    category: "electrical",
     location: "Ved el-rum",
-    items: ["Wire Tool", "Solar Panel", "Battery", "Switch", "CCTV Camera", "Targeting Computer", "Auto Turret", "Computer Station"],
+    items: ["wire_tool", "large_solar_panel", "large_rechargeable_battery", "switch", "cctv_camera", "targeting_computer", "auto_turret", "computer_station"],
     notes: "Marker Auto Turret, CCTV og Targeting Computer som mangler indtil I har dem."
   }
 ];
@@ -1142,14 +1019,34 @@ function bindEvents() {
   });
 }
 
+function guideDef(daBest, enBest, daAlt, enAlt, daTip, enTip, daRisk, enRisk, extra = {}) {
+  return {
+    da: {
+      bestSource: daBest,
+      alternativeSources: daAlt,
+      tip: daTip,
+      riskLevel: daRisk,
+      ...(extra.da || {})
+    },
+    en: {
+      bestSource: enBest,
+      alternativeSources: enAlt,
+      tip: enTip,
+      riskLevel: enRisk,
+      ...(extra.en || {})
+    }
+  };
+}
+
 function itemDef(id, rustName, daName, categoryId, minAmount, maxAmount, stackSize = DEFAULT_STACK_SIZE, aliases = [], guide = {}) {
-  const categoryGuide = GUIDE_BY_CATEGORY[categoryId] || GUIDE_BY_CATEGORY.other;
+  const normalizedCategory = normalizeCategory(categoryId, "misc");
+  const categoryGuide = GUIDE_BY_CATEGORY[normalizedCategory] || GUIDE_BY_CATEGORY.misc;
   return {
     id,
     rustName,
     daName,
     enName: rustName,
-    categoryId,
+    categoryId: normalizedCategory,
     minAmount,
     maxAmount,
     stackSize,
@@ -1250,7 +1147,7 @@ function getItemDefinition(itemOrName) {
     if (itemOrName.itemId && itemRegistry.has(itemOrName.itemId)) {
       return itemRegistry.get(itemOrName.itemId);
     }
-    return resolveItemName(itemOrName.name || itemOrName.originalName || itemOrName.rustName);
+    return resolveItemName(itemOrName.name || itemOrName.itemName || itemOrName.originalName || itemOrName.rustName);
   }
   return resolveItemName(itemOrName);
 }
@@ -1659,14 +1556,14 @@ function buildGeneratedLayout(storageTypes) {
     const name = index === 0 && extraSlots > 96 ? "Backup ammo" : index === 1 && extraSlots > 144 ? "Backup farm" : `Overflow ${index + 1}`;
     boxes.push(createGeneratedBox({
       name,
-      category: index % 2 ? "Farm" : "Diverse",
-      items: index === 0 ? ["Pistol Bullets", "5.56 Ammo", "Gunpowder"] : index === 1 ? ["Stone", "Wood", "Metal Fragments"] : [],
+      category: index % 2 ? "resources" : "misc",
+      items: index === 0 ? ["pistol_bullet", "556_rifle_ammo", "gun_powder"] : index === 1 ? ["stone", "wood", "metal_fragments"] : [],
       role: index < 2 ? "Backup" : "Overflow"
     }, boxes.length, storageTypes));
   }
 
   if (capacityBoxCount > boxes.length && !boxes.some(box => box.name.toLowerCase().includes("overflow"))) {
-    boxes.push(createGeneratedBox({ name: "Overflow", category: "Diverse", items: [], role: "Overflow" }, boxes.length, storageTypes));
+    boxes.push(createGeneratedBox({ name: "Overflow", category: "misc", items: [], role: "Overflow" }, boxes.length, storageTypes));
   }
 
   return {
@@ -1831,15 +1728,8 @@ function getItemGuide(itemOrName) {
   if (item?.guide?.[currentLanguage]) {
     return { ...item.guide[currentLanguage], category: item.categoryId };
   }
-  const legacyGuide = itemGuides.get(normalizeItemKey(typeof itemOrName === "string" ? itemOrName : itemOrName?.name));
-  if (legacyGuide) {
-    return {
-      ...legacyGuide,
-      category: normalizeCategory(legacyGuide.category, "other")
-    };
-  }
   return {
-    category: "other",
+    category: "misc",
     bestSource: t("noGuide"),
     alternativeSources: t("noGuideAlt"),
     tip: t("noGuideTip"),
@@ -2355,12 +2245,12 @@ function addManualItem(boxId) {
 function applyItemDefaultsToForm(form, itemName, itemOverride = null) {
   if (!form || !itemName) return;
   const exactItem = itemOverride || resolveItemName(itemName);
-  if (!exactItem && !defaultItemRanges.has(normalizeItemKey(itemName))) return;
+  if (!exactItem) return;
   const categoryInput = form.querySelector('[data-add-field="category"]');
   const minInput = form.querySelector('[data-add-field="minAmount"]');
   const maxInput = form.querySelector('[data-add-field="maxAmount"]');
-  const range = exactItem ? { minAmount: exactItem.minAmount, maxAmount: exactItem.maxAmount } : getDefaultRange(itemName);
-  if (categoryInput) categoryInput.value = exactItem?.categoryId || getSuggestedCategory(itemName);
+  const range = { minAmount: exactItem.minAmount, maxAmount: exactItem.maxAmount };
+  if (categoryInput) categoryInput.value = exactItem.categoryId;
   if (minInput) minInput.value = range.minAmount;
   if (maxInput) maxInput.value = range.maxAmount;
 }
@@ -2444,7 +2334,7 @@ function parseItemLine(line, oldBox, fallbackCategory) {
     const sameItemId = resolved?.id && item.itemId === resolved.id;
     return sameRowName || sameItemId;
   });
-  let category = oldItem?.category || resolved?.categoryId || fallbackCategory || "other";
+  let category = oldItem?.category || resolved?.categoryId || fallbackCategory || "misc";
   let currentAmount = oldItem?.currentAmount ?? 0;
   let minAmount = oldItem?.minAmount ?? oldItem?.limit ?? 0;
   let maxAmount = oldItem?.maxAmount ?? 0;
@@ -2480,7 +2370,7 @@ function parseItemLine(line, oldBox, fallbackCategory) {
     itemId: resolved?.id || oldItem?.itemId || "",
     name: (resolved?.rustName || name).slice(0, 80),
     originalName: resolved ? (oldItem?.originalName || "") : (oldItem?.originalName || name).slice(0, 80),
-    category: normalizeCategory(category, fallbackCategory || "other"),
+    category: normalizeCategory(category, fallbackCategory || "misc"),
     currentAmount: toAmount(currentAmount),
     minAmount: toAmount(minAmount),
     maxAmount: toAmount(maxAmount),
@@ -2489,7 +2379,7 @@ function parseItemLine(line, oldBox, fallbackCategory) {
 }
 
 function formatItemLine(item, fallbackCategory) {
-  const category = normalizeCategory(item.category, fallbackCategory || "other");
+  const category = normalizeCategory(item.category, fallbackCategory || "misc");
   const note = item.customNote ? ` | ${t("customNote")} ${item.customNote}` : "";
   return `${getItemDisplayName(item)} | ${getCategoryLabel(category)} | ${t("current")} ${toAmount(item.currentAmount)} | ${t("min")} ${toAmount(item.minAmount)} | ${t("max")} ${toAmount(item.maxAmount)}${note}`;
 }
@@ -2502,7 +2392,7 @@ function createTemplateItem(itemName, category) {
     itemId: resolved?.id || "",
     name: resolved?.rustName || itemName,
     originalName: resolved ? "" : itemName,
-    category: normalizeCategory(resolved?.categoryId || category, "other"),
+    category: normalizeCategory(resolved?.categoryId || category, "misc"),
     currentAmount: 0,
     minAmount: range.minAmount,
     maxAmount: range.maxAmount,
@@ -2515,17 +2405,13 @@ function getDefaultRange(itemName) {
   if (item) {
     return { minAmount: item.minAmount, maxAmount: item.maxAmount };
   }
-  return defaultItemRanges.get(normalizeItemKey(itemName)) || {
-    minAmount: DEFAULT_TEMPLATE_MIN,
-    maxAmount: DEFAULT_TEMPLATE_MAX
-  };
+  return { minAmount: DEFAULT_TEMPLATE_MIN, maxAmount: DEFAULT_TEMPLATE_MAX };
 }
 
 function getStackSize(itemOrName) {
   const item = getItemDefinition(itemOrName) || resolveItemName(itemOrName);
   if (item?.stackSize) return item.stackSize;
-  const name = typeof itemOrName === "string" ? itemOrName : itemOrName?.name;
-  return stackSizes.get(normalizeItemKey(name)) ?? DEFAULT_STACK_SIZE;
+  return DEFAULT_STACK_SIZE;
 }
 
 function getMissingToMin(item) {
@@ -2728,10 +2614,7 @@ function getBoxTypeLabel(box) {
 function getSuggestedCategory(itemName) {
   const item = resolveItemName(itemName);
   if (item) return item.categoryId;
-  const key = normalizeItemKey(itemName);
-  const catalogItem = itemCatalog.get(key);
-  const guide = itemGuides.get(key);
-  return normalizeCategory(catalogItem?.category || guide?.category, "other");
+  return "misc";
 }
 
 function getSelectedDialogBoxType() {
@@ -2760,12 +2643,16 @@ function setDialogBoxType(box) {
   syncDialogBoxTypeFields();
 }
 
-function normalizeCategory(value, fallback = "other") {
+function normalizeCategory(value, fallback = "misc") {
   if (fallback === "all" && value === "all") return "all";
   const key = normalizeItemKey(value);
   if (categories.includes(value)) return value;
   if (categoryAliasToId.has(key)) return categoryAliasToId.get(key);
-  return fallback;
+  if (fallback === "") return "";
+  const fallbackKey = normalizeItemKey(fallback);
+  if (categories.includes(fallback)) return fallback;
+  if (categoryAliasToId.has(fallbackKey)) return categoryAliasToId.get(fallbackKey);
+  return "misc";
 }
 
 function normalizeItemKey(value) {
@@ -3070,7 +2957,7 @@ function sanitizeStorageLayout(value) {
 function sanitizeItem(item, fallbackCategory) {
   const migratedMin = item?.minAmount ?? item?.min ?? item?.minimum ?? item?.limit ?? item?.targetAmount ?? item?.desiredLimit;
   const migratedMax = item?.maxAmount ?? item?.max ?? item?.maximum;
-  const rawName = String(item?.name ?? item?.originalName ?? item?.rustName ?? "Item").slice(0, 80);
+  const rawName = String(item?.name ?? item?.itemName ?? item?.originalName ?? item?.rustName ?? "Item").slice(0, 80);
   const resolved = item?.itemId && itemRegistry.has(item.itemId)
     ? itemRegistry.get(item.itemId)
     : resolveItemName(rawName);
