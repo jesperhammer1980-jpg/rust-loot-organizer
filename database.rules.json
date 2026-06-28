@@ -5,14 +5,13 @@
     "plans": {
       "$groupId": {
         ".read": "auth != null && $groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)",
-        ".write": "auth != null && $groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)",
-        ".validate": "newData.hasChildren(['wipeName', 'boxes']) || !newData.exists()"
+        ".write": "auth != null && $groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)"
       }
     },
     "presence": {
       "$groupId": {
+        ".read": "auth != null && $groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)",
         "$uid": {
-          ".read": "auth != null && $groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)",
           ".write": "auth != null && auth.uid == $uid && $groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)"
         }
       }

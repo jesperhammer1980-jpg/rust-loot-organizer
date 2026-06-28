@@ -122,3 +122,15 @@ Gruppe-koden fungerer som et delt hemmeligt rum. Brug derfor en genereret kode o
 ## Begrænsning
 
 Hvis to personer redigerer præcis samme boks samtidig, kan sidste gemning vinde. Til almindelig loot-sortering er det normalt fint.
+
+
+## FEJLFIX 2026-06-28
+
+Denne version indeholder en rettet `database.rules.json` uden den for stramme `.validate`-regel, som kunne forhindre første live-gemning, når planen endnu ikke havde bokse.
+
+Hvis siden viser **Kunne ikke gemme live**, skal reglerne i Firebase opdateres:
+
+1. Firebase Console → Realtime Database → Rules
+2. Indsæt indholdet fra `database.rules.json`
+3. Tryk **Publish**
+4. Genindlæs GitHub Pages-siden og tryk **Start live** igen

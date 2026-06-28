@@ -467,7 +467,7 @@ async function connectLive() {
     if (!firebaseApp) {
       firebaseApp = initializeApp(firebaseConfig);
       auth = getAuth(firebaseApp);
-      db = getDatabase(firebaseApp);
+      db = getDatabase(firebaseApp, firebaseConfig.databaseURL);
     }
 
     onAuthStateChanged(auth, user => {
@@ -475,7 +475,8 @@ async function connectLive() {
       if (user && activeGroup) setupPresence();
     });
 
-    await signInAnonymously(auth);
+    const credential = await signInAnonymously(auth);
+    currentUser = credential.user;
     planRef = ref(db, `plans/${activeGroup}`);
 
     if (unlistenPlan) unlistenPlan();
@@ -502,8 +503,9 @@ async function connectLive() {
 
     setupPresence();
   } catch (error) {
-    console.error(error);
-    setFirebaseStatus("offline", "Kunne ikke forbinde");
+    console.error("Kunne ikke forbinde", error);
+    const code = error?.code ? ` (${error.code})` : "";
+    setFirebaseStatus("offline", `Kunne ikke forbinde${code}`);
     alert("Kunne ikke forbinde til Firebase. Tjek firebase-config.js og om Anonymous Authentication + Realtime Database er slået til.");
   }
 }
@@ -543,18 +545,26 @@ function queueRemoteSave() {
   saveTimer = setTimeout(pushStateNow, 350);
 }
 
-function pushStateNow() {
+async function pushStateNow() {
   if (!planRef) return;
   const payload = {
     wipeName: state.wipeName || "",
-    boxes: state.boxes || [],
+    boxes: Array.isArray(state.boxes) ? state.boxes : [],
     updatedAt: Date.now(),
-    updatedBy: getPlayerName()
+    updatedBy: getPlayerName(),
+    version: 3
   };
-  set(planRef, payload).catch(error => {
-    console.error(error);
-    setFirebaseStatus("offline", "Kunne ikke gemme live");
-  });
+
+  try {
+    await set(planRef, payload);
+    setFirebaseStatus("online", `Live: ${activeGroup}`);
+    updateLastUpdated(payload.updatedAt, payload.updatedBy);
+  } catch (error) {
+    console.error("Kunne ikke gemme live", error);
+    const code = error?.code ? ` (${error.code})` : "";
+    setFirebaseStatus("offline", `Kunne ikke gemme live${code}`);
+    alert("Kunne ikke gemme live. Tjek at database.rules.json-reglerne er published i Firebase Rules, og at Anonymous login er enabled.");
+  }
 }
 
 function loadState(group) {
