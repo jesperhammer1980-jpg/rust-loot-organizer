@@ -1,3 +1,9 @@
+# Rust Loot Organizer Live - v4 Fix
+
+Denne version retter live-start med tom loot-plan. Den skriver en usynlig placeholder til Firebase, hvis planen stadig har 0 bokse, så ældre/stramme Realtime Database rules ikke afviser første gemning.
+
+Vigtigt: `database.rules.json` skal stadig kopieres/publishes i Firebase Console under Realtime Database -> Rules. Upload til GitHub ændrer ikke Firebase-reglerne automatisk.
+
 # Rust Loot Organizer Live
 
 En statisk GitHub Pages-side til at organisere Rust loot og storage boxes — med fælles live-data via Firebase Realtime Database.

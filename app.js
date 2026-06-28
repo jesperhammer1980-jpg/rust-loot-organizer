@@ -540,6 +540,26 @@ function saveState() {
   if (activeGroup && planRef && !applyingRemote) queueRemoteSave();
 }
 
+function toFirebaseBoxes(boxes) {
+  // Firebase Realtime Database can treat empty arrays as missing/null.
+  // Some older rules also require the child "boxes" to exist.
+  // This placeholder keeps first live-save valid while still showing 0 boxes in the app.
+  const cleanBoxes = Array.isArray(boxes) ? boxes : [];
+  if (!cleanBoxes.length) return { __empty: true };
+  return cleanBoxes;
+}
+
+function fromFirebaseBoxes(rawBoxes) {
+  if (Array.isArray(rawBoxes)) return rawBoxes;
+  if (rawBoxes && typeof rawBoxes === "object") {
+    return Object.entries(rawBoxes)
+      .filter(([key]) => key !== "__empty")
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([, value]) => value);
+  }
+  return [];
+}
+
 function queueRemoteSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(pushStateNow, 350);
@@ -549,10 +569,10 @@ async function pushStateNow() {
   if (!planRef) return;
   const payload = {
     wipeName: state.wipeName || "",
-    boxes: Array.isArray(state.boxes) ? state.boxes : [],
+    boxes: toFirebaseBoxes(state.boxes),
     updatedAt: Date.now(),
     updatedBy: getPlayerName(),
-    version: 3
+    version: 4
   };
 
   try {
@@ -562,8 +582,9 @@ async function pushStateNow() {
   } catch (error) {
     console.error("Kunne ikke gemme live", error);
     const code = error?.code ? ` (${error.code})` : "";
+    const message = error?.message ? `: ${error.message}` : "";
     setFirebaseStatus("offline", `Kunne ikke gemme live${code}`);
-    alert("Kunne ikke gemme live. Tjek at database.rules.json-reglerne er published i Firebase Rules, og at Anonymous login er enabled.");
+    alert(`Kunne ikke gemme live${code}${message}\n\nHvis fejlen er PERMISSION_DENIED, er Firebase Rules ikke publish'et eller for stramme.`);
   }
 }
 
@@ -580,7 +601,7 @@ function loadState(group) {
 }
 
 function sanitizeState(value) {
-  const boxes = Array.isArray(value?.boxes) ? value.boxes : [];
+  const boxes = fromFirebaseBoxes(value?.boxes);
   return {
     wipeName: typeof value?.wipeName === "string" ? value.wipeName : "",
     boxes: boxes.map(box => ({
