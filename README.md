@@ -1,25 +1,70 @@
-# Rust Loot Organizer Live - v6
+# Rust Loot Organizer Live - v0.7-test
 
 Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Database.
 
-## Hvad er ændret i v6
+## Test-before-live workflow
 
-v6 tilføjer mængdestyring på hvert item i hver storage box:
+Alle nye ændringer skal laves og testes på en test-branch først. Denne version ligger på:
 
-- `Nuværende`, `Limit` og beregnet `Mangler`
+`test/v0.7-minmax-guide-todo-links`
+
+Merge ikke til `main`, før test-versionen er godkendt. GitHub Pages live-siden deployer stadig fra `main`.
+
+## Hvad er ændret i v0.7-test
+
+v0.7-test udvider mængdestyringen med Min/Max, guide og direkte navigation:
+
+- `Nuværende`, `Min`, `Max` og beregnet `Mangler til min`
+- status: `Under min`, `OK` eller `Over max`
 - hurtige knapper til `-1`, `+1` og `+ stack`
-- `Mangler / To-do` viser antal, fx `Pistol Bullets: mangler 64`
-- topstatistikken `Mangler` tæller item-typer under deres limit
-- eksport/import og print indeholder mængder
-- gamle items uden mængder migreres sikkert med `Nuværende 0` og `Limit 0`
+- To-do listen viser kun items under `Min`
+- To-do items har `Hop til box`, som scroller til boksen og markerer den
+- To-do items har `Vis guide` / `Skjul guide`
+- guide viser `Findes lettest`, `Alternativer`, `Tip` og `Risiko`
+- `Egen note` pr. item syncer live og er med i eksport/import/print
+- gamle v0.6 items med `limit` migreres sikkert til `minAmount`
 
-Når en gruppe-link åbnes, læser appen Firebase først. Hvis gruppen findes, bruges remote planen. Hvis gruppen ikke findes, oprettes en tom starter-plan, så lokal browserdata ikke overskriver en eksisterende gruppe.
+## Min/Max
 
-## Hvad er ændret i v5
+I en boks kan items skrives som:
 
-v5 bruger **ikke Firebase Authentication**. Det gør den lettere for hele gruppen at bruge, fordi andre brugere ikke kan blive blokeret af Anonymous Auth, authorized domains eller login-indstillinger.
+`Item navn | Kategori | Nuværende 5 | Min 20 | Max 100`
 
-Sikkerheden er simpel: alle med jeres gruppe-link/kode kan se og ændre planen. Brug derfor en lang gruppe-kode og del kun linket med gruppen.
+Eksempel:
+
+`Pistol Bullets | Ammo | Nuværende 5 | Min 20 | Max 100`
+
+`Mangler til min` beregnes altid i appen som `max(minAmount - currentAmount, 0)` og gemmes ikke som separat felt.
+
+Hvis `Max` er `0` eller tom, bliver itemet ikke markeret som `Over max`.
+
+## Missing item guide
+
+Guiden ligger som en statisk lookup-table i `app.js` (`itemGuides`). Tilføj flere entries ved at bruge item-navnet som nøgle:
+
+```js
+"item name": {
+  category: "Farm",
+  bestSource: "Findes lettest ...",
+  alternativeSources: "Alternativer ...",
+  tip: "Tip ...",
+  riskLevel: "Lav"
+}
+```
+
+Ukendte items viser `Ingen guide endnu` og en note om at tilføje itemet til guide-listen i `app.js`.
+
+## Firebase
+
+v0.7-test bruger stadig Firebase Realtime Database uden Firebase Authentication.
+
+Når en gruppe-link åbnes:
+
+1. Appen læser remote Firebase-data først.
+2. Hvis gruppen findes, bruges remote planen.
+3. Hvis gruppen ikke findes, oprettes en tom starter-plan.
+
+Det beskytter eksisterende grupper mod at blive overskrevet af lokal browserdata.
 
 ## Filer
 
@@ -31,54 +76,20 @@ Sikkerheden er simpel: alle med jeres gruppe-link/kode kan se og ændre planen. 
 - `database.rules.json`
 - `README.md`
 
-## GitHub Pages
-
-Upload/erstat alle filer i dit GitHub repository. Commit changes.
-
-Hvis GitHub Pages allerede er aktiveret, deployer den selv den nye version efter 1-3 minutter.
-
-## Firebase Realtime Database Rules
-
-Upload til GitHub ændrer ikke Firebase-reglerne automatisk. Du skal selv kopiere reglerne fra `database.rules.json` ind her:
-
-Firebase Console → Realtime Database → Rules → indsæt regler → Publish
-
-## Firebase config
-
-`firebase-config.js` er udfyldt til projektet:
-
-- projectId: `rust-loot-organizer`
-- databaseURL: `https://rust-loot-organizer-default-rtdb.europe-west1.firebasedatabase.app`
-
-Firebase web config er ikke et password. Realtime Database Rules styrer adgangen.
-
 ## Brug
 
-1. Åbn GitHub Pages-siden.
+1. Åbn test-preview eller GitHub Pages-siden.
 2. Skriv dit navn.
 3. Generér eller indtast en gruppe-kode.
 4. Tryk `Start live`.
-5. Tryk `Kopiér link` og send linket til gruppen.
-6. Andre brugere åbner linket og trykker `Start live`, hvis den ikke forbinder automatisk.
-
-## Mængder
-
-I en boks kan items skrives som:
-
-`Item navn | Kategori | Nuværende | Limit`
-
-Eksempel:
-
-`Pistol Bullets | Ammo | 5 | 20`
-
-`Mangler` beregnes altid i appen som `max(limit - nuværende, 0)` og gemmes ikke som et separat felt.
+5. Tilføj bokse og items.
+6. Tryk `Kopiér link` og send linket til gruppen.
 
 ## Fejlretning
 
 Hvis andre ikke kan forbinde:
 
-1. Tjek at GitHub Pages har deployet den nyeste version.
+1. Tjek at test-preview eller GitHub Pages har den rigtige version-label.
 2. Bed dem trykke Ctrl+F5 eller åbne linket i inkognito.
 3. Tjek at reglerne fra `database.rules.json` er published i Firebase.
 4. Tjek at alle bruger præcis samme gruppe-link eller samme gruppe-kode.
-

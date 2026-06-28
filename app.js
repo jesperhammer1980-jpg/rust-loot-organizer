@@ -2,29 +2,36 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/fireba
 import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
 const LOCAL_SETTINGS_KEY = "rust-loot-live-settings-v2";
+const APP_VERSION = "v0.7-test";
 
 const categories = [
   "Våben", "Ammo", "Components", "Farm", "Byggeri", "Raid", "Medical/Food",
   "Cards/Fuses", "Tøj/Armor", "Elektronik", "Diverse"
 ];
 
-const DEFAULT_TEMPLATE_LIMIT = 1;
+const DEFAULT_TEMPLATE_MIN = 1;
+const DEFAULT_TEMPLATE_MAX = 0;
 const DEFAULT_STACK_SIZE = 100;
 
-const defaultItemLimits = new Map(Object.entries({
-  "stone": 20000,
-  "wood": 10000,
-  "metal fragments": 10000,
-  "sulfur": 5000,
-  "charcoal": 5000,
-  "pistol bullets": 128,
-  "5.56 ammo": 128,
-  "5.56 rifle ammo": 128,
-  "syringe": 20,
-  "medical syringe": 20,
-  "bandage": 30,
-  "low grade fuel": 500
-}).map(([name, limit]) => [normalizeItemKey(name), limit]));
+const defaultItemRanges = new Map(Object.entries({
+  "stone": { minAmount: 10000, maxAmount: 30000 },
+  "wood": { minAmount: 5000, maxAmount: 20000 },
+  "metal fragments": { minAmount: 5000, maxAmount: 15000 },
+  "metal ore": { minAmount: 5000, maxAmount: 15000 },
+  "sulfur": { minAmount: 2500, maxAmount: 10000 },
+  "sulfur ore": { minAmount: 2500, maxAmount: 10000 },
+  "charcoal": { minAmount: 2500, maxAmount: 10000 },
+  "pistol bullets": { minAmount: 128, maxAmount: 512 },
+  "5.56 ammo": { minAmount: 128, maxAmount: 512 },
+  "5.56 rifle ammo": { minAmount: 128, maxAmount: 512 },
+  "syringe": { minAmount: 20, maxAmount: 60 },
+  "medical syringe": { minAmount: 20, maxAmount: 60 },
+  "bandage": { minAmount: 30, maxAmount: 100 },
+  "low grade fuel": { minAmount: 500, maxAmount: 2000 },
+  "scrap": { minAmount: 500, maxAmount: 3000 },
+  "high quality metal": { minAmount: 50, maxAmount: 300 },
+  "high quality metal ore": { minAmount: 50, maxAmount: 300 }
+}).map(([name, range]) => [normalizeItemKey(name), range]));
 
 const stackSizes = new Map(Object.entries({
   "stone": 1000,
@@ -47,6 +54,164 @@ const stackSizes = new Map(Object.entries({
   "low grade fuel": 500
 }).map(([name, amount]) => [normalizeItemKey(name), amount]));
 
+const itemGuides = new Map(Object.entries({
+  "stone": {
+    category: "Farm",
+    bestSource: "Stone nodes ved klipper, bjerge og stenede områder",
+    alternativeSources: "Små sten-pickups fra jorden",
+    tip: "Brug stone pickaxe eller pickaxe. Følg glimtpunktet på noden.",
+    riskLevel: "Lav"
+  },
+  "wood": {
+    category: "Farm",
+    bestSource: "Træer",
+    alternativeSources: "Stumps eller handel ved Outpost hvis serveren tillader det",
+    tip: "Brug hatchet eller chainsaw for hurtigere farming.",
+    riskLevel: "Lav"
+  },
+  "metal ore": {
+    category: "Farm",
+    bestSource: "Metal nodes",
+    alternativeSources: "Mining Outpost / quarry hvis serveren bruger det",
+    tip: "Skal smeltes i furnace til metal fragments.",
+    riskLevel: "Lav/Mellem"
+  },
+  "metal fragments": {
+    category: "Farm",
+    bestSource: "Smelt metal ore i furnace",
+    alternativeSources: "Recycle components, loot crates/barrels",
+    tip: "Recycle road signs, sheet metal, metal pipes osv.",
+    riskLevel: "Lav/Mellem"
+  },
+  "sulfur": {
+    category: "Raid",
+    bestSource: "Sulfur nodes",
+    alternativeSources: "Mining quarry hvis serveren bruger det",
+    tip: "Sulfur er raid-materiale, så farm diskret og depotér ofte.",
+    riskLevel: "Mellem"
+  },
+  "sulfur ore": {
+    category: "Farm",
+    bestSource: "Sulfur nodes",
+    alternativeSources: "Mining quarry hvis serveren bruger det",
+    tip: "Sulfur er raid-materiale, så farm diskret og depotér ofte.",
+    riskLevel: "Mellem"
+  },
+  "charcoal": {
+    category: "Farm",
+    bestSource: "Brænd wood i furnace/campfire",
+    alternativeSources: "Loot",
+    tip: "Charcoal + sulfur bruges til gunpowder.",
+    riskLevel: "Lav"
+  },
+  "gunpowder": {
+    category: "Raid",
+    bestSource: "Craft af sulfur + charcoal",
+    alternativeSources: "Ammo crates, military crates",
+    tip: "Bruges til ammo og explosives.",
+    riskLevel: "Mellem"
+  },
+  "gun powder": {
+    category: "Raid",
+    bestSource: "Craft af sulfur + charcoal",
+    alternativeSources: "Ammo crates, military crates",
+    tip: "Bruges til ammo og explosives.",
+    riskLevel: "Mellem"
+  },
+  "pistol bullets": {
+    category: "Ammo",
+    bestSource: "Craft ved workbench med metal fragments + gunpowder",
+    alternativeSources: "Ammo crates, scientists, monuments",
+    tip: "Hvis I mangler gunpowder, farm sulfur og lav charcoal.",
+    riskLevel: "Mellem",
+    requirements: "Workbench, blueprint, metal fragments og gunpowder"
+  },
+  "5.56 ammo": {
+    category: "Ammo",
+    bestSource: "Craft ved workbench når blueprint er lært",
+    alternativeSources: "Military crates, locked crates, scientists",
+    tip: "Bruges til SAR, LR, AK osv.",
+    riskLevel: "Mellem/Høj",
+    requirements: "Workbench og blueprint"
+  },
+  "5.56 rifle ammo": {
+    category: "Ammo",
+    bestSource: "Craft ved workbench når blueprint er lært",
+    alternativeSources: "Military crates, locked crates, scientists",
+    tip: "Bruges til SAR, LR, AK osv.",
+    riskLevel: "Mellem/Høj",
+    requirements: "Workbench og blueprint"
+  },
+  "syringe": {
+    category: "Medical/Food",
+    bestSource: "Medical crates, scientists, monuments",
+    alternativeSources: "Craft hvis blueprint og workbench/resources er klar",
+    tip: "Prioritér medical crates ved Supermarket, Gas Station og Sewer Branch.",
+    riskLevel: "Mellem",
+    monuments: "Supermarket, Gas Station, Sewer Branch"
+  },
+  "medical syringe": {
+    category: "Medical/Food",
+    bestSource: "Medical crates, scientists, monuments",
+    alternativeSources: "Craft hvis blueprint og workbench/resources er klar",
+    tip: "Prioritér medical crates ved Supermarket, Gas Station og Sewer Branch.",
+    riskLevel: "Mellem",
+    monuments: "Supermarket, Gas Station, Sewer Branch"
+  },
+  "bandage": {
+    category: "Medical/Food",
+    bestSource: "Craft af cloth",
+    alternativeSources: "Medical crates",
+    tip: "Cloth fås fra hemp, dyr og recycling af tøj.",
+    riskLevel: "Lav"
+  },
+  "low grade fuel": {
+    category: "Farm",
+    bestSource: "Craft af animal fat + cloth",
+    alternativeSources: "Red barrels, refinery, monuments",
+    tip: "Bruges til furnace, meds og køretøjer afhængigt af server/version.",
+    riskLevel: "Lav/Mellem"
+  },
+  "scrap": {
+    category: "Components",
+    bestSource: "Slå barrels langs veje og recycle components",
+    alternativeSources: "Monuments, crates, safe recycling ved Outpost",
+    tip: "Lav korte ture og depotér scrap ofte.",
+    riskLevel: "Mellem",
+    monuments: "Outpost, veje, monuments"
+  },
+  "high quality metal": {
+    category: "Farm",
+    bestSource: "Recycle high-end components eller smelt HQM ore",
+    alternativeSources: "Military/elite crates",
+    tip: "Bruges til turrets, våben og avancerede ting.",
+    riskLevel: "Mellem/Høj"
+  },
+  "high quality metal ore": {
+    category: "Farm",
+    bestSource: "HQM nodes eller high-tier loot afhængigt af server",
+    alternativeSources: "Military/elite crates",
+    tip: "Smelt HQM ore til high quality metal.",
+    riskLevel: "Mellem/Høj"
+  },
+  "targeting computer": {
+    category: "Elektronik",
+    bestSource: "Military/elite crates, locked crates, helicopter/bradley loot",
+    alternativeSources: "High-tier monuments",
+    tip: "Bruges til Auto Turret.",
+    riskLevel: "Høj",
+    monuments: "Launch Site, Military Tunnels, Oil Rig"
+  },
+  "cctv camera": {
+    category: "Elektronik",
+    bestSource: "Military/elite crates, locked crates",
+    alternativeSources: "High-tier monuments",
+    tip: "Bruges til Auto Turret og kamera-system.",
+    riskLevel: "Høj",
+    monuments: "Launch Site, Military Tunnels, Oil Rig"
+  }
+}).map(([name, guide]) => [normalizeItemKey(name), guide]));
+
 const defaultTemplates = [
   {
     name: "Våben",
@@ -59,14 +224,14 @@ const defaultTemplates = [
     name: "Ammo",
     category: "Ammo",
     location: "Ved siden af våben",
-    items: ["Pistol Bullets", "5.56 Rifle Ammo", "Handmade Shells", "Buckshot", "Arrows", "Gun Powder"],
+    items: ["Pistol Bullets", "5.56 Ammo", "Handmade Shells", "Buckshot", "Arrows", "Gun Powder"],
     notes: "Lav ikke al gunpowder om til ammo. Gem noget til raid/eksplosiver."
   },
   {
     name: "Components",
     category: "Components",
     location: "Loot room - recycle boks",
-    items: ["Tech Trash", "Rifle Body", "SMG Body", "Semi-Auto Body", "Metal Spring", "Metal Pipe", "Gears", "Road Signs", "Sheet Metal", "Tarp", "Rope"],
+    items: ["Scrap", "Tech Trash", "Rifle Body", "SMG Body", "Semi-Auto Body", "Metal Spring", "Metal Pipe", "Gears", "Road Signs", "Sheet Metal", "Tarp", "Rope"],
     notes: "Sorter ting der skal researches øverst i boksen."
   },
   {
@@ -114,6 +279,7 @@ const defaultTemplates = [
 ];
 
 const els = {
+  versionLabel: document.getElementById("versionLabel"),
   liveHelp: document.getElementById("liveHelp"),
   liveStatus: document.getElementById("liveStatus"),
   firebaseConfigStatus: document.getElementById("firebaseConfigStatus"),
@@ -178,6 +344,10 @@ function init() {
   fillCategorySelects();
   renderTemplates();
   bindEvents();
+
+  if (els.versionLabel) {
+    els.versionLabel.textContent = `Rust Loot Organizer — ${APP_VERSION}`;
+  }
 
   els.playerName.value = appSettings.playerName || "";
   els.groupCode.value = cleanGroupCode(queryGroup || defaultGroupCode || appSettings.groupCode || "");
@@ -285,35 +455,161 @@ function render() {
 
 function renderStats() {
   const allItems = state.boxes.flatMap(box => box.items || []);
-  const missing = allItems.filter(item => getMissingAmount(item) > 0).length;
+  const missing = allItems.filter(item => getMissingToMin(item) > 0).length;
   els.statBoxes.textContent = state.boxes.length;
   els.statItems.textContent = allItems.length;
   els.statMissing.textContent = missing;
 }
 
 function renderMissingList() {
-  const missing = state.boxes.flatMap(box => (box.items || [])
-    .map(item => ({ ...item, missingAmount: getMissingAmount(item), boxName: box.name, boxId: box.id }))
-    .filter(item => item.missingAmount > 0)
-  );
+  const allItems = state.boxes.flatMap(box => (box.items || []).map(item => ({
+    ...item,
+    missingToMin: getMissingToMin(item),
+    overMaxAmount: getOverMaxAmount(item),
+    boxName: box.name,
+    boxId: box.id
+  })));
+  const missing = allItems.filter(item => item.missingToMin > 0);
+  const overMax = allItems.filter(item => item.overMaxAmount > 0);
 
-  if (!missing.length) {
-    els.missingList.innerHTML = `<li>Ingen mangler lige nu.<small>Alle items er opfyldt eller har limit 0.</small></li>`;
+  if (!missing.length && !overMax.length) {
+    els.missingList.innerHTML = `<li class="todo-empty">Ingen mangler lige nu.<small>Alle items er over min, og intet er over max.</small></li>`;
     return;
   }
 
-  els.missingList.innerHTML = missing.map(item => `
-    <li>
-      <strong>${escapeHtml(item.name)}: mangler ${item.missingAmount}</strong>
-      <small>${escapeHtml(item.boxName)} · ${escapeHtml(item.category)} · Nuværende ${toAmount(item.currentAmount)} / Limit ${toAmount(item.limit)}</small>
+  const missingHtml = missing.map(item => renderTodoItem(item)).join("");
+  const overMaxHtml = overMax.map(item => `
+    <li class="todo-overmax">
+      <strong>${escapeHtml(item.name)} — ${toAmount(item.currentAmount)} / max ${toAmount(item.maxAmount)}</strong>
+      <small>Box: ${escapeHtml(item.boxName)} — over max med ${item.overMaxAmount}</small>
+      <button class="ghost todo-action" type="button" data-jump-box="${escapeHtml(item.boxId)}" data-jump-item="${escapeHtml(item.id)}">Hop til box</button>
     </li>
   `).join("");
+
+  els.missingList.innerHTML = `
+    ${missingHtml}
+    ${overMaxHtml ? `<li class="todo-section-label">Over max</li>${overMaxHtml}` : ""}
+  `;
+
+  els.missingList.querySelectorAll("[data-jump-box]").forEach(button => {
+    button.addEventListener("click", () => jumpToBox(button.dataset.jumpBox, button.dataset.jumpItem));
+  });
+  els.missingList.querySelectorAll("[data-toggle-guide]").forEach(button => {
+    button.addEventListener("click", () => toggleGuide(button.dataset.toggleGuide));
+  });
+}
+
+function renderTodoItem(item) {
+  const guide = getItemGuide(item.name);
+  const guideId = `guide-${item.boxId}-${item.id}`;
+  const riskClass = `risk-${normalizeRiskClass(guide.riskLevel)}`;
+
+  return `
+    <li class="todo-item">
+      <div class="todo-topline">
+        <strong>${escapeHtml(item.name)} — Mangler til min: ${item.missingToMin}</strong>
+        <span class="risk-badge ${riskClass}">Risiko: ${escapeHtml(guide.riskLevel)}</span>
+      </div>
+      <small>Box: ${escapeHtml(item.boxName)} · ${escapeHtml(item.category)} · Nuværende ${toAmount(item.currentAmount)} / Min ${toAmount(item.minAmount)} / Max ${formatMaxAmount(item.maxAmount)}</small>
+      <div class="todo-actions">
+        <button class="ghost todo-action" type="button" data-jump-box="${escapeHtml(item.boxId)}" data-jump-item="${escapeHtml(item.id)}">Hop til box</button>
+        <button class="ghost todo-action" type="button" data-toggle-guide="${escapeHtml(guideId)}">Vis guide</button>
+      </div>
+      <div id="${escapeHtml(guideId)}" class="guide-panel hidden">
+        ${renderGuideDetails(guide, item.customNote)}
+      </div>
+    </li>
+  `;
+}
+
+function renderGuideDetails(guide, customNote = "") {
+  return `
+    <dl>
+      <div><dt>Findes lettest</dt><dd>${escapeHtml(guide.bestSource)}</dd></div>
+      <div><dt>Alternativer</dt><dd>${escapeHtml(guide.alternativeSources)}</dd></div>
+      <div><dt>Tip</dt><dd>${escapeHtml(guide.tip)}</dd></div>
+      <div><dt>Risiko</dt><dd>${escapeHtml(guide.riskLevel)}</dd></div>
+      ${guide.monuments ? `<div><dt>Monuments</dt><dd>${escapeHtml(guide.monuments)}</dd></div>` : ""}
+      ${guide.requirements ? `<div><dt>Krav</dt><dd>${escapeHtml(guide.requirements)}</dd></div>` : ""}
+      ${customNote ? `<div><dt>Egen note</dt><dd>${escapeHtml(customNote)}</dd></div>` : ""}
+    </dl>
+  `;
+}
+
+function jumpToBox(boxId, itemId) {
+  const ensureVisible = () => {
+    const boxEl = els.boxGrid.querySelector(`[data-box-id="${cssEscape(boxId)}"]`);
+    if (!boxEl) return;
+    boxEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    boxEl.classList.add("box-highlight");
+    const itemEl = boxEl.querySelector(`[data-item-id="${cssEscape(itemId)}"]`);
+    itemEl?.classList.add("item-highlight");
+    window.setTimeout(() => {
+      boxEl.classList.remove("box-highlight");
+      itemEl?.classList.remove("item-highlight");
+    }, 1800);
+  };
+
+  if (currentSearch || currentCategory !== "all") {
+    currentSearch = "";
+    currentCategory = "all";
+    els.searchInput.value = "";
+    els.filterCategory.value = "all";
+    renderBoxes();
+    window.requestAnimationFrame(ensureVisible);
+  } else {
+    ensureVisible();
+  }
+}
+
+function toggleGuide(guideId) {
+  const panel = document.getElementById(guideId);
+  const button = els.missingList.querySelector(`[data-toggle-guide="${cssEscape(guideId)}"]`);
+  if (!panel || !button) return;
+  const isHidden = panel.classList.toggle("hidden");
+  button.textContent = isHidden ? "Vis guide" : "Skjul guide";
+}
+
+function getItemGuide(itemName) {
+  return itemGuides.get(normalizeItemKey(itemName)) || {
+    category: "Diverse",
+    bestSource: "Ingen guide endnu",
+    alternativeSources: "Tilføj itemet til guide-listen i app.js",
+    tip: "Tilføj itemet til guide-listen i app.js",
+    riskLevel: "Ukendt"
+  };
+}
+
+function normalizeRiskClass(value) {
+  return String(value || "ukendt")
+    .toLowerCase()
+    .replaceAll("ø", "oe")
+    .replaceAll("å", "aa")
+    .replaceAll("æ", "ae")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return CSS.escape(String(value));
+  return String(value).replaceAll('"', '\\"');
 }
 
 function renderBoxes() {
   const filtered = state.boxes.filter(box => {
     const categoryOk = currentCategory === "all" || box.category === currentCategory;
-    const haystack = [box.name, box.category, box.location, box.notes, ...(box.items || []).flatMap(i => [i.name, i.category])].join(" ").toLowerCase();
+    const haystack = [
+      box.name,
+      box.category,
+      box.location,
+      box.notes,
+      ...(box.items || []).flatMap(item => [
+        item.name,
+        item.category,
+        item.customNote,
+        getGuideSearchText(item.name)
+      ])
+    ].join(" ").toLowerCase();
     const searchOk = !currentSearch || haystack.includes(currentSearch);
     return categoryOk && searchOk;
   });
@@ -334,7 +630,7 @@ function renderBoxes() {
   }
 
   els.boxGrid.innerHTML = filtered.map(box => `
-    <article class="panel loot-box" data-box-id="${box.id}">
+    <article class="panel loot-box" data-box-id="${escapeHtml(box.id)}" id="box-${escapeHtml(box.id)}">
       <header>
         <div>
           <h3>${escapeHtml(box.name)}</h3>
@@ -362,19 +658,25 @@ function renderBoxes() {
     button.addEventListener("click", () => adjustItemAmount(button.dataset.boxId, button.dataset.itemId, button.dataset.adjustItem));
   });
   els.boxGrid.querySelectorAll("[data-quantity-field]").forEach(input => {
-    input.addEventListener("input", () => updateItemQuantity(input.dataset.boxId, input.dataset.itemId, input.dataset.quantityField, input.value, false));
-    input.addEventListener("change", () => updateItemQuantity(input.dataset.boxId, input.dataset.itemId, input.dataset.quantityField, input.value));
+    input.addEventListener("input", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.quantityField, input.value, false));
+    input.addEventListener("change", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.quantityField, input.value));
+  });
+  els.boxGrid.querySelectorAll("[data-note-field]").forEach(input => {
+    input.addEventListener("input", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.noteField, input.value, false));
+    input.addEventListener("change", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.noteField, input.value));
   });
 }
 
 function renderItemRow(item, box) {
   const currentAmount = toAmount(item.currentAmount);
-  const limit = toAmount(item.limit);
-  const missingAmount = getMissingAmount(item);
-  const statusLabel = missingAmount > 0 ? "Mangler" : "Opfyldt";
+  const minAmount = toAmount(item.minAmount);
+  const maxAmount = toAmount(item.maxAmount);
+  const missingToMin = getMissingToMin(item);
+  const status = getItemStatus(item);
+  const guide = getItemGuide(item.name);
 
   return `
-    <li class="item-row ${missingAmount > 0 ? "is-missing" : "is-filled"}" data-item-id="${escapeHtml(item.id)}">
+    <li class="item-row ${status.className}" data-item-id="${escapeHtml(item.id)}">
       <div class="item-main">
         <span class="item-name">${escapeHtml(item.name)}</span>
         <span class="item-category">${escapeHtml(item.category || box.category)}</span>
@@ -385,14 +687,24 @@ function renderItemRow(item, box) {
           <input type="number" min="0" step="1" inputmode="numeric" value="${currentAmount}" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-quantity-field="currentAmount" aria-label="Nuværende for ${escapeHtml(item.name)}" />
         </label>
         <label>
-          <span>Limit</span>
-          <input type="number" min="0" step="1" inputmode="numeric" value="${limit}" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-quantity-field="limit" aria-label="Limit for ${escapeHtml(item.name)}" />
+          <span>Min</span>
+          <input type="number" min="0" step="1" inputmode="numeric" value="${minAmount}" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-quantity-field="minAmount" aria-label="Min for ${escapeHtml(item.name)}" />
         </label>
-        <span class="missing-badge ${missingAmount > 0 ? "warning" : "ok"}">
-          <span>${statusLabel}</span>
-          <strong>${missingAmount}</strong>
+        <label>
+          <span>Max</span>
+          <input type="number" min="0" step="1" inputmode="numeric" value="${maxAmount}" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-quantity-field="maxAmount" aria-label="Max for ${escapeHtml(item.name)}" />
+        </label>
+        <span class="missing-badge ${status.badgeClass}">
+          <span>${escapeHtml(status.label)}</span>
+          <strong>${missingToMin}</strong>
+          <em>Mangler til min</em>
         </span>
       </div>
+      <label class="item-note">
+        <span>Egen note</span>
+        <input type="text" value="${escapeHtml(item.customNote || "")}" placeholder="Server-note, fx køb ved Outpost" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-note-field="customNote" aria-label="Egen note for ${escapeHtml(item.name)}" />
+      </label>
+      <div class="item-guide-line">Findes lettest: ${escapeHtml(guide.bestSource)} · Tip: ${escapeHtml(guide.tip)}</div>
       <div class="item-actions">
         <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="-1">-1</button>
         <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="1">+1</button>
@@ -462,14 +774,14 @@ function addTemplate(template) {
   render();
 }
 
-function updateItemQuantity(boxId, itemId, field, value, rerender = true) {
-  if (!["currentAmount", "limit"].includes(field)) return;
-  const amount = toAmount(value);
+function updateItemField(boxId, itemId, field, value, rerender = true) {
+  if (!["currentAmount", "minAmount", "maxAmount", "customNote"].includes(field)) return;
+  const nextValue = field === "customNote" ? String(value || "").slice(0, 240) : toAmount(value);
   state.boxes = state.boxes.map(box => {
     if (box.id !== boxId) return box;
     return {
       ...box,
-      items: (box.items || []).map(item => item.id === itemId ? { ...item, [field]: amount } : item)
+      items: (box.items || []).map(item => item.id === itemId ? { ...item, [field]: nextValue } : item)
     };
   });
   saveState();
@@ -489,11 +801,11 @@ function adjustItemAmount(boxId, itemId, adjustment) {
       items: (box.items || []).map(item => {
         if (item.id !== itemId) return item;
         const currentAmount = toAmount(item.currentAmount);
-        const limit = toAmount(item.limit);
+        const maxAmount = toAmount(item.maxAmount);
         const delta = adjustment === "stack" ? getStackSize(item.name) : Number(adjustment);
         if (!Number.isFinite(delta)) return item;
-        const nextAmount = adjustment === "stack" && limit > currentAmount
-          ? Math.min(currentAmount + delta, limit)
+        const nextAmount = adjustment === "stack" && maxAmount > currentAmount
+          ? Math.min(currentAmount + delta, maxAmount)
           : Math.max(currentAmount + delta, 0);
         return { ...item, currentAmount: nextAmount };
       })
@@ -507,8 +819,10 @@ function copyBoxList(boxId) {
   const box = state.boxes.find(b => b.id === boxId);
   if (!box) return;
   const text = `${box.name}\n${(box.items || []).map(i => {
-    const missingAmount = getMissingAmount(i);
-    return `- ${i.name} (${i.category}) - Nuværende ${toAmount(i.currentAmount)} / Limit ${toAmount(i.limit)} - ${missingAmount > 0 ? `Mangler ${missingAmount}` : "Opfyldt"}`;
+    const missingToMin = getMissingToMin(i);
+    const status = getItemStatus(i).label;
+    const customNote = i.customNote ? ` - Egen note: ${i.customNote}` : "";
+    return `- ${i.name} (${i.category}) - Nuværende ${toAmount(i.currentAmount)} / Min ${toAmount(i.minAmount)} / Max ${formatMaxAmount(i.maxAmount)} - ${status}${missingToMin > 0 ? `, mangler ${missingToMin} til min` : ""}${customNote}`;
   }).join("\n")}`;
   copyText(text, "Listen er kopieret.");
 }
@@ -522,62 +836,145 @@ function parseItemLine(line, oldBox, fallbackCategory) {
   const oldItem = oldBox?.items?.find(item => item.name.toLowerCase() === name.toLowerCase());
   let category = oldItem?.category || fallbackCategory || "Diverse";
   let currentAmount = oldItem?.currentAmount ?? 0;
-  let limit = oldItem?.limit ?? 0;
+  let minAmount = oldItem?.minAmount ?? oldItem?.limit ?? 0;
+  let maxAmount = oldItem?.maxAmount ?? 0;
+  let customNote = oldItem?.customNote ?? "";
+  const numericParts = [];
 
-  if (parts.length >= 4) {
-    category = normalizeCategory(parts[1], category);
-    currentAmount = parts[2];
-    limit = parts[3];
-  } else if (parts.length === 3) {
-    if (isAmountLike(parts[1])) {
-      currentAmount = parts[1];
-      limit = parts[2];
-    } else {
-      category = normalizeCategory(parts[1], category);
-      limit = parts[2];
+  parts.slice(1).forEach(part => {
+    const labelValue = parseLabeledValue(part);
+    if (labelValue) {
+      if (labelValue.key === "currentAmount") currentAmount = labelValue.value;
+      if (labelValue.key === "minAmount") minAmount = labelValue.value;
+      if (labelValue.key === "maxAmount") maxAmount = labelValue.value;
+      if (labelValue.key === "customNote") customNote = labelValue.value;
+      return;
     }
-  } else if (parts.length === 2) {
-    if (isAmountLike(parts[1])) {
-      limit = parts[1];
-    } else {
-      category = normalizeCategory(parts[1], category);
+
+    if (categories.includes(part)) {
+      category = part;
+    } else if (isAmountLike(part)) {
+      numericParts.push(part);
+    } else if (!customNote) {
+      category = normalizeCategory(part, category);
     }
-  }
+  });
+
+  if (numericParts.length) currentAmount = numericParts[0];
+  if (numericParts.length > 1) minAmount = numericParts[1];
+  if (numericParts.length > 2) maxAmount = numericParts[2];
 
   return {
     id: oldItem?.id ?? newId(),
     name,
     category: normalizeCategory(category, fallbackCategory || "Diverse"),
     currentAmount: toAmount(currentAmount),
-    limit: toAmount(limit)
+    minAmount: toAmount(minAmount),
+    maxAmount: toAmount(maxAmount),
+    customNote: String(customNote || "").slice(0, 240)
   };
 }
 
 function formatItemLine(item, fallbackCategory) {
   const category = normalizeCategory(item.category, fallbackCategory || "Diverse");
-  return `${item.name} | ${category} | ${toAmount(item.currentAmount)} | ${toAmount(item.limit)}`;
+  const note = item.customNote ? ` | Egen note ${item.customNote}` : "";
+  return `${item.name} | ${category} | Nuværende ${toAmount(item.currentAmount)} | Min ${toAmount(item.minAmount)} | Max ${toAmount(item.maxAmount)}${note}`;
 }
 
 function createTemplateItem(itemName, category) {
+  const range = getDefaultRange(itemName);
   return {
     id: newId(),
     name: itemName,
     category,
     currentAmount: 0,
-    limit: getDefaultLimit(itemName)
+    minAmount: range.minAmount,
+    maxAmount: range.maxAmount,
+    customNote: ""
   };
 }
 
-function getDefaultLimit(itemName) {
-  return defaultItemLimits.get(normalizeItemKey(itemName)) ?? DEFAULT_TEMPLATE_LIMIT;
+function getDefaultRange(itemName) {
+  return defaultItemRanges.get(normalizeItemKey(itemName)) || {
+    minAmount: DEFAULT_TEMPLATE_MIN,
+    maxAmount: DEFAULT_TEMPLATE_MAX
+  };
 }
 
 function getStackSize(itemName) {
   return stackSizes.get(normalizeItemKey(itemName)) ?? DEFAULT_STACK_SIZE;
 }
 
-function getMissingAmount(item) {
-  return Math.max(toAmount(item.limit) - toAmount(item.currentAmount), 0);
+function getMissingToMin(item) {
+  return Math.max(toAmount(item.minAmount) - toAmount(item.currentAmount), 0);
+}
+
+function getOverMaxAmount(item) {
+  const maxAmount = toAmount(item.maxAmount);
+  if (!maxAmount) return 0;
+  return Math.max(toAmount(item.currentAmount) - maxAmount, 0);
+}
+
+function getItemStatus(item) {
+  if (getMissingToMin(item) > 0) {
+    return { label: "Under min", className: "is-under-min", badgeClass: "warning" };
+  }
+  if (getOverMaxAmount(item) > 0) {
+    return { label: "Over max", className: "is-over-max", badgeClass: "danger" };
+  }
+  return { label: "OK", className: "is-ok", badgeClass: "ok" };
+}
+
+function formatMaxAmount(value) {
+  const amount = toAmount(value);
+  return amount ? String(amount) : "Ingen max";
+}
+
+function parseLabeledValue(part) {
+  const raw = String(part || "").trim();
+  const lower = raw.toLowerCase();
+  const multiWordLabels = [
+    ["egen note", "customNote"],
+    ["custom note", "customNote"],
+    ["mangler til min", "minAmount"]
+  ];
+
+  for (const [label, key] of multiWordLabels) {
+    if (lower.startsWith(`${label} `) || lower.startsWith(`${label}:`) || lower.startsWith(`${label}=`)) {
+      return { key, value: raw.slice(label.length).replace(/^[:=\s]+/, "") };
+    }
+  }
+
+  const match = raw.match(/^([^:]+?)(?:\s*[:=]\s*|\s+)(.+)$/);
+  if (!match) return null;
+  const label = match[1].trim().toLowerCase();
+  const value = match[2].trim();
+
+  if (["nuværende", "nuvaerende", "current", "currentamount", "amount", "antal"].includes(label)) {
+    return { key: "currentAmount", value };
+  }
+  if (["min", "minimum", "minamount"].includes(label)) {
+    return { key: "minAmount", value };
+  }
+  if (["max", "maximum", "maxamount"].includes(label)) {
+    return { key: "maxAmount", value };
+  }
+  if (["egen note", "note", "custom note", "customnote"].includes(label)) {
+    return { key: "customNote", value };
+  }
+  return null;
+}
+
+function getGuideSearchText(itemName) {
+  const guide = getItemGuide(itemName);
+  return [
+    guide.bestSource,
+    guide.alternativeSources,
+    guide.tip,
+    guide.riskLevel,
+    guide.monuments,
+    guide.requirements
+  ].filter(Boolean).join(" ");
 }
 
 function toAmount(value) {
@@ -770,7 +1167,7 @@ async function pushStateNow() {
     boxes: toFirebaseBoxes(state.boxes),
     updatedAt: Date.now(),
     updatedBy: getPlayerName(),
-    version: 6
+    version: 7
   };
 
   try {
@@ -819,12 +1216,16 @@ function sanitizeBox(box) {
 }
 
 function sanitizeItem(item, fallbackCategory) {
+  const migratedMin = item?.minAmount ?? item?.min ?? item?.minimum ?? item?.limit ?? item?.targetAmount ?? item?.desiredLimit;
+  const migratedMax = item?.maxAmount ?? item?.max ?? item?.maximum;
   return {
     id: String(item?.id || newId()),
     name: String(item?.name || "Item").slice(0, 80),
     category: normalizeCategory(item?.category, fallbackCategory || "Diverse"),
     currentAmount: toAmount(item?.currentAmount ?? item?.current ?? item?.amount),
-    limit: toAmount(item?.limit ?? item?.targetAmount ?? item?.desiredLimit)
+    minAmount: toAmount(migratedMin),
+    maxAmount: toAmount(migratedMax),
+    customNote: String(item?.customNote ?? item?.guideNote ?? item?.note ?? "").slice(0, 240)
   };
 }
 
