@@ -2,11 +2,295 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/fireba
 import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
 const LOCAL_SETTINGS_KEY = "rust-loot-live-settings-v2";
+const APP_VERSION = "v0.8";
+const LAYOUT_PRESET_VERSION = "v0.8";
+const RECOMMENDED_MIN_SLOTS = 360;
 
 const categories = [
   "Våben", "Ammo", "Components", "Farm", "Byggeri", "Raid", "Medical/Food",
   "Cards/Fuses", "Tøj/Armor", "Elektronik", "Diverse"
 ];
+
+const DEFAULT_TEMPLATE_MIN = 1;
+const DEFAULT_TEMPLATE_MAX = 0;
+const DEFAULT_STACK_SIZE = 100;
+
+const defaultStorageTypes = [
+  { id: "large-box", label: "Stor boks", name: "Large Box", count: 0, slots: 48, fixed: true },
+  { id: "small-box", label: "Lille boks", name: "Small Box", count: 0, slots: 18, fixed: true },
+  { id: "locker", label: "Locker", name: "Locker", count: 0, slots: 36, fixed: true },
+  { id: "fridge", label: "Køleskab", name: "Fridge", count: 0, slots: 42, fixed: true },
+  { id: "tool-cupboard", label: "TC", name: "Tool Cupboard", count: 0, slots: 24, fixed: true },
+  { id: "drop-box", label: "Drop box", name: "Drop Box", count: 0, slots: 12, fixed: true },
+  { id: "vending-machine", label: "Vending machine", name: "Vending Machine", count: 0, slots: 30, fixed: true }
+];
+
+const recommendedStorageCounts = {
+  "large-box": 6,
+  "small-box": 2,
+  "locker": 1,
+  "fridge": 0,
+  "tool-cupboard": 0,
+  "drop-box": 0,
+  "vending-machine": 0
+};
+
+const defaultItemRanges = new Map(Object.entries({
+  "stone": { minAmount: 10000, maxAmount: 30000 },
+  "wood": { minAmount: 5000, maxAmount: 20000 },
+  "metal fragments": { minAmount: 5000, maxAmount: 15000 },
+  "metal ore": { minAmount: 5000, maxAmount: 15000 },
+  "sulfur": { minAmount: 2500, maxAmount: 10000 },
+  "sulfur ore": { minAmount: 2500, maxAmount: 10000 },
+  "charcoal": { minAmount: 2500, maxAmount: 10000 },
+  "gunpowder": { minAmount: 1000, maxAmount: 5000 },
+  "gun powder": { minAmount: 1000, maxAmount: 5000 },
+  "pistol bullets": { minAmount: 128, maxAmount: 512 },
+  "5.56 ammo": { minAmount: 128, maxAmount: 512 },
+  "5.56 rifle ammo": { minAmount: 128, maxAmount: 512 },
+  "shotgun shells": { minAmount: 64, maxAmount: 256 },
+  "handmade shells": { minAmount: 64, maxAmount: 256 },
+  "buckshot": { minAmount: 64, maxAmount: 256 },
+  "arrows": { minAmount: 64, maxAmount: 256 },
+  "syringe": { minAmount: 20, maxAmount: 60 },
+  "medical syringe": { minAmount: 20, maxAmount: 60 },
+  "bandage": { minAmount: 30, maxAmount: 100 },
+  "medkit": { minAmount: 4, maxAmount: 20 },
+  "large medkit": { minAmount: 4, maxAmount: 20 },
+  "low grade fuel": { minAmount: 500, maxAmount: 2000 },
+  "cloth": { minAmount: 500, maxAmount: 3000 },
+  "animal fat": { minAmount: 200, maxAmount: 1000 },
+  "gears": { minAmount: 10, maxAmount: 50 },
+  "metal pipe": { minAmount: 10, maxAmount: 50 },
+  "road signs": { minAmount: 10, maxAmount: 50 },
+  "sheet metal": { minAmount: 10, maxAmount: 50 },
+  "springs": { minAmount: 10, maxAmount: 50 },
+  "metal spring": { minAmount: 10, maxAmount: 50 },
+  "tech trash": { minAmount: 5, maxAmount: 30 },
+  "scrap": { minAmount: 500, maxAmount: 3000 },
+  "high quality metal": { minAmount: 50, maxAmount: 300 },
+  "high quality metal ore": { minAmount: 50, maxAmount: 300 },
+  "cctv camera": { minAmount: 2, maxAmount: 10 },
+  "targeting computer": { minAmount: 2, maxAmount: 10 },
+  "fuse": { minAmount: 5, maxAmount: 20 },
+  "electric fuse": { minAmount: 5, maxAmount: 20 },
+  "green card": { minAmount: 2, maxAmount: 10 },
+  "green keycard": { minAmount: 2, maxAmount: 10 },
+  "blue card": { minAmount: 2, maxAmount: 10 },
+  "blue keycard": { minAmount: 2, maxAmount: 10 },
+  "red card": { minAmount: 1, maxAmount: 5 },
+  "red keycard": { minAmount: 1, maxAmount: 5 }
+}).map(([name, range]) => [normalizeItemKey(name), range]));
+
+const stackSizes = new Map(Object.entries({
+  "stone": 1000,
+  "wood": 1000,
+  "metal fragments": 1000,
+  "sulfur": 1000,
+  "sulfur ore": 1000,
+  "metal ore": 1000,
+  "charcoal": 1000,
+  "gun powder": 1000,
+  "pistol bullets": 128,
+  "5.56 ammo": 128,
+  "5.56 rifle ammo": 128,
+  "arrows": 64,
+  "handmade shells": 64,
+  "buckshot": 64,
+  "syringe": 2,
+  "medical syringe": 2,
+  "bandage": 3,
+  "low grade fuel": 500
+}).map(([name, amount]) => [normalizeItemKey(name), amount]));
+
+const layoutBoxRecipes = {
+  plenty: [
+    { name: "Farm — Stone", category: "Farm", items: ["Stone"], role: "Primær" },
+    { name: "Farm — Wood", category: "Farm", items: ["Wood", "Low Grade Fuel"], role: "Primær" },
+    { name: "Farm — Metal", category: "Farm", items: ["Metal Ore", "Metal Fragments", "High Quality Metal"], role: "Primær" },
+    { name: "Farm — Sulfur", category: "Farm", items: ["Sulfur Ore", "Sulfur", "Charcoal"], role: "Primær" },
+    { name: "Components 1", category: "Components", items: ["Scrap", "Gears", "Metal Pipe", "Road Signs"], role: "Primær" },
+    { name: "Components 2", category: "Components", items: ["Sheet Metal", "Metal Spring", "Tech Trash"], role: "Backup" },
+    { name: "Ammo", category: "Ammo", items: ["Pistol Bullets", "5.56 Ammo", "Shotgun Shells", "Arrows", "Gunpowder"], role: "Primær" },
+    { name: "Weapons", category: "Våben", items: ["Revolver", "Semi-Auto Rifle", "Shotgun", "Bue/Crossbow"], role: "Primær" },
+    { name: "Meds", category: "Medical/Food", items: ["Syringe", "Bandage", "Medkit", "Cloth", "Animal Fat"], role: "Primær" },
+    { name: "Tools", category: "Byggeri", items: ["Tool Cupboard", "Hammer", "Building Plan", "Doors", "Code Locks"], role: "Primær" },
+    { name: "Electrical", category: "Elektronik", items: ["CCTV Camera", "Targeting Computer", "Auto Turret", "Wire Tool"], role: "Primær" },
+    { name: "Raid", category: "Raid", items: ["Gunpowder", "Explosive Ammo", "Rocket", "C4"], role: "Primær" },
+    { name: "Cards", category: "Cards/Fuses", items: ["Green Card", "Blue Card", "Red Card", "Fuse"], role: "Primær" }
+  ],
+  limited: [
+    { name: "Farm", category: "Farm", items: ["Stone", "Wood", "Metal Ore", "Metal Fragments", "Sulfur Ore", "Sulfur", "Charcoal", "Low Grade Fuel"], role: "Primær" },
+    { name: "Components", category: "Components", items: ["Scrap", "Gears", "Metal Pipe", "Road Signs", "Sheet Metal", "Metal Spring", "Tech Trash"], role: "Primær" },
+    { name: "Ammo / Weapons", category: "Ammo", items: ["Pistol Bullets", "5.56 Ammo", "Shotgun Shells", "Arrows", "Gunpowder", "Revolver", "Semi-Auto Rifle"], role: "Primær" },
+    { name: "Meds / Food / Clothes", category: "Medical/Food", items: ["Syringe", "Bandage", "Medkit", "Cloth", "Animal Fat"], role: "Primær" },
+    { name: "Tools / Electrical", category: "Elektronik", items: ["Tool Cupboard", "Hammer", "Building Plan", "CCTV Camera", "Targeting Computer", "Fuse"], role: "Primær" },
+    { name: "Raid / Cards", category: "Raid", items: ["Gunpowder", "Explosive Ammo", "Rocket", "Green Card", "Blue Card", "Red Card"], role: "Backup" }
+  ],
+  tiny: [
+    { name: "Mixed farm", category: "Farm", items: ["Stone", "Wood", "Metal Fragments", "Sulfur", "Charcoal"], role: "Primær" },
+    { name: "Mixed combat", category: "Ammo", items: ["Pistol Bullets", "5.56 Ammo", "Syringe", "Bandage", "Revolver"], role: "Primær" },
+    { name: "Mixed components/tools", category: "Components", items: ["Scrap", "Gears", "Metal Pipe", "Sheet Metal", "Tool Cupboard", "Hammer"], role: "Primær" }
+  ]
+};
+
+const itemGuides = new Map(Object.entries({
+  "stone": {
+    category: "Farm",
+    bestSource: "Stone nodes ved klipper, bjerge og stenede områder",
+    alternativeSources: "Små sten-pickups fra jorden",
+    tip: "Brug stone pickaxe eller pickaxe. Følg glimtpunktet på noden.",
+    riskLevel: "Lav"
+  },
+  "wood": {
+    category: "Farm",
+    bestSource: "Træer",
+    alternativeSources: "Stumps eller handel ved Outpost hvis serveren tillader det",
+    tip: "Brug hatchet eller chainsaw for hurtigere farming.",
+    riskLevel: "Lav"
+  },
+  "metal ore": {
+    category: "Farm",
+    bestSource: "Metal nodes",
+    alternativeSources: "Mining Outpost / quarry hvis serveren bruger det",
+    tip: "Skal smeltes i furnace til metal fragments.",
+    riskLevel: "Lav/Mellem"
+  },
+  "metal fragments": {
+    category: "Farm",
+    bestSource: "Smelt metal ore i furnace",
+    alternativeSources: "Recycle components, loot crates/barrels",
+    tip: "Recycle road signs, sheet metal, metal pipes osv.",
+    riskLevel: "Lav/Mellem"
+  },
+  "sulfur": {
+    category: "Raid",
+    bestSource: "Sulfur nodes",
+    alternativeSources: "Mining quarry hvis serveren bruger det",
+    tip: "Sulfur er raid-materiale, så farm diskret og depotér ofte.",
+    riskLevel: "Mellem"
+  },
+  "sulfur ore": {
+    category: "Farm",
+    bestSource: "Sulfur nodes",
+    alternativeSources: "Mining quarry hvis serveren bruger det",
+    tip: "Sulfur er raid-materiale, så farm diskret og depotér ofte.",
+    riskLevel: "Mellem"
+  },
+  "charcoal": {
+    category: "Farm",
+    bestSource: "Brænd wood i furnace/campfire",
+    alternativeSources: "Loot",
+    tip: "Charcoal + sulfur bruges til gunpowder.",
+    riskLevel: "Lav"
+  },
+  "gunpowder": {
+    category: "Raid",
+    bestSource: "Craft af sulfur + charcoal",
+    alternativeSources: "Ammo crates, military crates",
+    tip: "Bruges til ammo og explosives.",
+    riskLevel: "Mellem"
+  },
+  "gun powder": {
+    category: "Raid",
+    bestSource: "Craft af sulfur + charcoal",
+    alternativeSources: "Ammo crates, military crates",
+    tip: "Bruges til ammo og explosives.",
+    riskLevel: "Mellem"
+  },
+  "pistol bullets": {
+    category: "Ammo",
+    bestSource: "Craft ved workbench med metal fragments + gunpowder",
+    alternativeSources: "Ammo crates, scientists, monuments",
+    tip: "Hvis I mangler gunpowder, farm sulfur og lav charcoal.",
+    riskLevel: "Mellem",
+    requirements: "Workbench, blueprint, metal fragments og gunpowder"
+  },
+  "5.56 ammo": {
+    category: "Ammo",
+    bestSource: "Craft ved workbench når blueprint er lært",
+    alternativeSources: "Military crates, locked crates, scientists",
+    tip: "Bruges til SAR, LR, AK osv.",
+    riskLevel: "Mellem/Høj",
+    requirements: "Workbench og blueprint"
+  },
+  "5.56 rifle ammo": {
+    category: "Ammo",
+    bestSource: "Craft ved workbench når blueprint er lært",
+    alternativeSources: "Military crates, locked crates, scientists",
+    tip: "Bruges til SAR, LR, AK osv.",
+    riskLevel: "Mellem/Høj",
+    requirements: "Workbench og blueprint"
+  },
+  "syringe": {
+    category: "Medical/Food",
+    bestSource: "Medical crates, scientists, monuments",
+    alternativeSources: "Craft hvis blueprint og workbench/resources er klar",
+    tip: "Prioritér medical crates ved Supermarket, Gas Station og Sewer Branch.",
+    riskLevel: "Mellem",
+    monuments: "Supermarket, Gas Station, Sewer Branch"
+  },
+  "medical syringe": {
+    category: "Medical/Food",
+    bestSource: "Medical crates, scientists, monuments",
+    alternativeSources: "Craft hvis blueprint og workbench/resources er klar",
+    tip: "Prioritér medical crates ved Supermarket, Gas Station og Sewer Branch.",
+    riskLevel: "Mellem",
+    monuments: "Supermarket, Gas Station, Sewer Branch"
+  },
+  "bandage": {
+    category: "Medical/Food",
+    bestSource: "Craft af cloth",
+    alternativeSources: "Medical crates",
+    tip: "Cloth fås fra hemp, dyr og recycling af tøj.",
+    riskLevel: "Lav"
+  },
+  "low grade fuel": {
+    category: "Farm",
+    bestSource: "Craft af animal fat + cloth",
+    alternativeSources: "Red barrels, refinery, monuments",
+    tip: "Bruges til furnace, meds og køretøjer afhængigt af server/version.",
+    riskLevel: "Lav/Mellem"
+  },
+  "scrap": {
+    category: "Components",
+    bestSource: "Slå barrels langs veje og recycle components",
+    alternativeSources: "Monuments, crates, safe recycling ved Outpost",
+    tip: "Lav korte ture og depotér scrap ofte.",
+    riskLevel: "Mellem",
+    monuments: "Outpost, veje, monuments"
+  },
+  "high quality metal": {
+    category: "Farm",
+    bestSource: "Recycle high-end components eller smelt HQM ore",
+    alternativeSources: "Military/elite crates",
+    tip: "Bruges til turrets, våben og avancerede ting.",
+    riskLevel: "Mellem/Høj"
+  },
+  "high quality metal ore": {
+    category: "Farm",
+    bestSource: "HQM nodes eller high-tier loot afhængigt af server",
+    alternativeSources: "Military/elite crates",
+    tip: "Smelt HQM ore til high quality metal.",
+    riskLevel: "Mellem/Høj"
+  },
+  "targeting computer": {
+    category: "Elektronik",
+    bestSource: "Military/elite crates, locked crates, helicopter/bradley loot",
+    alternativeSources: "High-tier monuments",
+    tip: "Bruges til Auto Turret.",
+    riskLevel: "Høj",
+    monuments: "Launch Site, Military Tunnels, Oil Rig"
+  },
+  "cctv camera": {
+    category: "Elektronik",
+    bestSource: "Military/elite crates, locked crates",
+    alternativeSources: "High-tier monuments",
+    tip: "Bruges til Auto Turret og kamera-system.",
+    riskLevel: "Høj",
+    monuments: "Launch Site, Military Tunnels, Oil Rig"
+  }
+}).map(([name, guide]) => [normalizeItemKey(name), guide]));
 
 const defaultTemplates = [
   {
@@ -20,21 +304,21 @@ const defaultTemplates = [
     name: "Ammo",
     category: "Ammo",
     location: "Ved siden af våben",
-    items: ["Pistol Bullets", "5.56 Rifle Ammo", "Handmade Shells", "Buckshot", "Arrows", "Gun Powder"],
+    items: ["Pistol Bullets", "5.56 Ammo", "Handmade Shells", "Buckshot", "Arrows", "Gun Powder"],
     notes: "Lav ikke al gunpowder om til ammo. Gem noget til raid/eksplosiver."
   },
   {
     name: "Components",
     category: "Components",
     location: "Loot room - recycle boks",
-    items: ["Tech Trash", "Rifle Body", "SMG Body", "Semi-Auto Body", "Metal Spring", "Metal Pipe", "Gears", "Road Signs", "Sheet Metal", "Tarp", "Rope"],
+    items: ["Scrap", "Tech Trash", "Rifle Body", "SMG Body", "Semi-Auto Body", "Metal Spring", "Metal Pipe", "Gears", "Road Signs", "Sheet Metal", "Tarp", "Rope"],
     notes: "Sorter ting der skal researches øverst i boksen."
   },
   {
     name: "Farm",
     category: "Farm",
     location: "Tæt på furnace room",
-    items: ["Stone", "Metal Ore", "Sulfur Ore", "Wood", "Charcoal", "High Quality Metal Ore"],
+    items: ["Stone", "Metal Ore", "Sulfur Ore", "Wood", "Charcoal", "Low Grade Fuel", "High Quality Metal Ore"],
     notes: "Sulfur er raid-magnet. Gem det dybt i basen."
   },
   {
@@ -75,6 +359,7 @@ const defaultTemplates = [
 ];
 
 const els = {
+  versionLabel: document.getElementById("versionLabel"),
   liveHelp: document.getElementById("liveHelp"),
   liveStatus: document.getElementById("liveStatus"),
   firebaseConfigStatus: document.getElementById("firebaseConfigStatus"),
@@ -91,6 +376,9 @@ const els = {
   statMissing: document.getElementById("statMissing"),
   searchInput: document.getElementById("searchInput"),
   filterCategory: document.getElementById("filterCategory"),
+  storageTable: document.getElementById("storageTable"),
+  storageSummary: document.getElementById("storageSummary"),
+  layoutStatus: document.getElementById("layoutStatus"),
   boxGrid: document.getElementById("boxGrid"),
   missingList: document.getElementById("missingList"),
   boxDialog: document.getElementById("boxDialog"),
@@ -103,6 +391,10 @@ const els = {
   boxItems: document.getElementById("boxItems"),
   boxNotes: document.getElementById("boxNotes"),
   btnAddBox: document.getElementById("btnAddBox"),
+  btnRecommendedStorage: document.getElementById("btnRecommendedStorage"),
+  btnAddStorageType: document.getElementById("btnAddStorageType"),
+  btnClearStorage: document.getElementById("btnClearStorage"),
+  btnGenerateLayout: document.getElementById("btnGenerateLayout"),
   btnDeleteBox: document.getElementById("btnDeleteBox"),
   btnTemplates: document.getElementById("btnTemplates"),
   btnCloseTemplates: document.getElementById("btnCloseTemplates"),
@@ -140,8 +432,16 @@ function init() {
   renderTemplates();
   bindEvents();
 
+  if (els.versionLabel) {
+    els.versionLabel.textContent = `Rust Loot Organizer — ${APP_VERSION}`;
+  }
+
   els.playerName.value = appSettings.playerName || "";
   els.groupCode.value = cleanGroupCode(queryGroup || defaultGroupCode || appSettings.groupCode || "");
+
+  if (firebaseConfigured && els.groupCode.value) {
+    state = createStarterState();
+  }
 
   setFirebaseConfigStatus();
   render();
@@ -187,6 +487,10 @@ function bindEvents() {
   });
 
   els.btnAddBox.addEventListener("click", () => openBoxDialog());
+  els.btnRecommendedStorage.addEventListener("click", applyRecommendedStorage);
+  els.btnAddStorageType.addEventListener("click", addCustomStorageType);
+  els.btnClearStorage.addEventListener("click", clearStorageLayout);
+  els.btnGenerateLayout.addEventListener("click", generateStorageLayout);
   els.btnTemplates.addEventListener("click", () => els.templatesPanel.classList.toggle("hidden"));
   els.btnCloseTemplates.addEventListener("click", () => els.templatesPanel.classList.add("hidden"));
   els.btnExport.addEventListener("click", exportData);
@@ -235,42 +539,370 @@ function renderTemplates() {
 
 function render() {
   els.wipeName.value = state.wipeName ?? "";
+  renderStorageGenerator();
   renderStats();
   renderMissingList();
   renderBoxes();
 }
 
+function renderStorageGenerator() {
+  const storage = getStorageLayout();
+  const summary = getStorageSummary(storage.storageTypes);
+  els.storageTable.innerHTML = `
+    <div class="storage-row storage-header">
+      <span>Box type</span>
+      <span>Antal</span>
+      <span>Kapacitet / slots</span>
+      <span>Total slots</span>
+      <span></span>
+    </div>
+    ${storage.storageTypes.map(type => renderStorageRow(type)).join("")}
+  `;
+
+  els.storageTable.querySelectorAll("[data-storage-field]").forEach(input => {
+    input.addEventListener("input", () => updateStorageType(input.dataset.storageId, input.dataset.storageField, input.value));
+  });
+  els.storageTable.querySelectorAll("[data-remove-storage]").forEach(button => {
+    button.addEventListener("click", () => removeStorageType(button.dataset.removeStorage));
+  });
+
+  const balanceLabel = summary.missingSlots > 0 ? "Mangler slots" : "Ekstra slots";
+  const balanceValue = summary.missingSlots > 0 ? summary.missingSlots : summary.extraSlots;
+  const balanceClass = summary.missingSlots > 0 ? "warning" : "ok";
+  els.storageSummary.innerHTML = `
+    <article><span>Total bokse</span><strong>${summary.totalBoxes}</strong></article>
+    <article><span>Total slots</span><strong>${summary.totalSlots}</strong></article>
+    <article><span>Anbefalet minimum slots</span><strong>${RECOMMENDED_MIN_SLOTS}</strong></article>
+    <article class="${balanceClass}"><span>${balanceLabel}</span><strong>${balanceValue}</strong></article>
+  `;
+
+  const status = storage.layoutStatus || getLayoutStatus(summary).label;
+  els.layoutStatus.textContent = storage.generatedAt
+    ? `${status} · genereret ${formatDateTime(storage.generatedAt)}`
+    : status;
+}
+
+function renderStorageRow(type) {
+  const total = toAmount(type.count) * toAmount(type.slots);
+  const nameInput = type.fixed
+    ? `<strong>${escapeHtml(type.label)}</strong><small>${escapeHtml(type.name)}</small>`
+    : `<input type="text" value="${escapeHtml(type.label || type.name || "")}" data-storage-id="${escapeHtml(type.id)}" data-storage-field="label" aria-label="Box type" />`;
+
+  return `
+    <div class="storage-row" data-storage-id="${escapeHtml(type.id)}">
+      <div class="storage-name">${nameInput}</div>
+      <input type="number" min="0" step="1" inputmode="numeric" value="${toAmount(type.count)}" data-storage-id="${escapeHtml(type.id)}" data-storage-field="count" aria-label="Antal ${escapeHtml(type.label)}" />
+      <input type="number" min="1" step="1" inputmode="numeric" value="${toAmount(type.slots)}" data-storage-id="${escapeHtml(type.id)}" data-storage-field="slots" aria-label="Slots ${escapeHtml(type.label)}" ${type.fixed ? "readonly" : ""} />
+      <strong>${total}</strong>
+      ${type.fixed ? `<span class="storage-fixed">Primær</span>` : `<button class="ghost storage-remove" type="button" data-remove-storage="${escapeHtml(type.id)}">Fjern</button>`}
+    </div>
+  `;
+}
+
+function updateStorageType(id, field, value) {
+  if (!["label", "count", "slots"].includes(field)) return;
+  const storage = getStorageLayout();
+  storage.storageTypes = storage.storageTypes.map(type => {
+    if (type.id !== id) return type;
+    const nextValue = field === "label" ? String(value || "").slice(0, 60) : toAmount(value);
+    return { ...type, [field]: nextValue, name: field === "label" ? nextValue : type.name };
+  });
+  refreshStorageDraftStatus(storage);
+  state.storageLayout = sanitizeStorageLayout(storage);
+  saveState();
+  renderStorageGenerator();
+}
+
+function applyRecommendedStorage() {
+  const storage = getStorageLayout();
+  storage.storageTypes = storage.storageTypes.map(type => ({
+    ...type,
+    count: recommendedStorageCounts[type.id] ?? type.count
+  }));
+  refreshStorageDraftStatus(storage);
+  state.storageLayout = sanitizeStorageLayout(storage);
+  saveState();
+  render();
+}
+
+function addCustomStorageType() {
+  const storage = getStorageLayout();
+  storage.storageTypes.push({
+    id: newId(),
+    label: "Ammo shelf",
+    name: "Ammo shelf",
+    count: 1,
+    slots: 24,
+    fixed: false
+  });
+  refreshStorageDraftStatus(storage);
+  state.storageLayout = sanitizeStorageLayout(storage);
+  saveState();
+  render();
+}
+
+function removeStorageType(id) {
+  const storage = getStorageLayout();
+  storage.storageTypes = storage.storageTypes.filter(type => type.id !== id);
+  refreshStorageDraftStatus(storage);
+  state.storageLayout = sanitizeStorageLayout(storage);
+  saveState();
+  render();
+}
+
+function clearStorageLayout() {
+  if (state.boxes.length) {
+    const clear = confirm("Dette rydder det nuværende layout. Vil du fortsætte?");
+    if (!clear) return;
+  }
+  state.storageLayout = createDefaultStorageLayout();
+  state.boxes = [];
+  saveState();
+  render();
+}
+
+function generateStorageLayout() {
+  const storage = getStorageLayout();
+  const summary = getStorageSummary(storage.storageTypes);
+  if (summary.totalBoxes <= 0 || summary.totalSlots <= 0) {
+    alert("Tilføj mindst én storage box før layout genereres.");
+    return;
+  }
+
+  if (state.boxes.length) {
+    const replace = confirm("Dette erstatter det nuværende layout. Vil du fortsætte?");
+    if (!replace) return;
+  }
+
+  const result = buildGeneratedLayout(storage.storageTypes);
+  state.boxes = result.boxes;
+  state.storageLayout = sanitizeStorageLayout({
+    ...storage,
+    generatedAt: Date.now(),
+    layoutPresetVersion: LAYOUT_PRESET_VERSION,
+    layoutStatus: result.status,
+    totalBoxes: summary.totalBoxes,
+    totalSlots: summary.totalSlots,
+    recommendedMinSlots: RECOMMENDED_MIN_SLOTS
+  });
+  saveState();
+  render();
+}
+
+function buildGeneratedLayout(storageTypes) {
+  const summary = getStorageSummary(storageTypes);
+  const status = getLayoutStatus(summary);
+  const baseRecipes = layoutBoxRecipes[status.kind];
+  const capacityBoxCount = Math.max(summary.totalBoxes, 1);
+  const targetCount = Math.min(baseRecipes.length, capacityBoxCount);
+  const selectedRecipes = baseRecipes.slice(0, targetCount);
+  const boxes = selectedRecipes.map((recipe, index) => createGeneratedBox(recipe, index, storageTypes));
+  const extraBoxCount = Math.max(capacityBoxCount - boxes.length, 0);
+  const extraSlots = Math.max(summary.totalSlots - RECOMMENDED_MIN_SLOTS, 0);
+
+  for (let index = 0; index < extraBoxCount; index += 1) {
+    const name = index === 0 && extraSlots > 96 ? "Backup ammo" : index === 1 && extraSlots > 144 ? "Backup farm" : `Overflow ${index + 1}`;
+    boxes.push(createGeneratedBox({
+      name,
+      category: index % 2 ? "Farm" : "Diverse",
+      items: index === 0 ? ["Pistol Bullets", "5.56 Ammo", "Gunpowder"] : index === 1 ? ["Stone", "Wood", "Metal Fragments"] : [],
+      role: index < 2 ? "Backup" : "Overflow"
+    }, boxes.length, storageTypes));
+  }
+
+  if (capacityBoxCount > boxes.length && !boxes.some(box => box.name.toLowerCase().includes("overflow"))) {
+    boxes.push(createGeneratedBox({ name: "Overflow", category: "Diverse", items: [], role: "Overflow" }, boxes.length, storageTypes));
+  }
+
+  return {
+    boxes,
+    status: status.label
+  };
+}
+
+function createGeneratedBox(recipe, index, storageTypes) {
+  const assignedStorage = getNthPhysicalStorage(storageTypes, index);
+  const role = recipe.role || "Primær";
+  return {
+    id: newId(),
+    name: recipe.name,
+    category: normalizeCategory(recipe.category, "Diverse"),
+    location: assignedStorage ? `${assignedStorage.label} · ${assignedStorage.slots} slots · ${role}` : role,
+    items: recipe.items.map(itemName => createGeneratedItem(itemName, recipe.category)),
+    notes: `Genereret layout (${role}). ${assignedStorage ? `Planlagt i ${assignedStorage.label}.` : ""}`
+  };
+}
+
+function createGeneratedItem(itemName, category) {
+  const range = getDefaultRange(itemName);
+  return {
+    id: newId(),
+    name: itemName,
+    category: normalizeCategory(getItemGuide(itemName).category, category || "Diverse"),
+    currentAmount: 0,
+    minAmount: range.minAmount,
+    maxAmount: range.maxAmount,
+    customNote: ""
+  };
+}
+
 function renderStats() {
   const allItems = state.boxes.flatMap(box => box.items || []);
-  const missing = allItems.filter(item => item.missing).length;
+  const missing = allItems.filter(item => getMissingToMin(item) > 0).length;
   els.statBoxes.textContent = state.boxes.length;
   els.statItems.textContent = allItems.length;
   els.statMissing.textContent = missing;
 }
 
 function renderMissingList() {
-  const missing = state.boxes.flatMap(box => (box.items || [])
-    .filter(item => item.missing)
-    .map(item => ({ ...item, boxName: box.name, boxId: box.id }))
-  );
+  const allItems = state.boxes.flatMap(box => (box.items || []).map(item => ({
+    ...item,
+    missingToMin: getMissingToMin(item),
+    overMaxAmount: getOverMaxAmount(item),
+    boxName: box.name,
+    boxId: box.id
+  })));
+  const missing = allItems.filter(item => item.missingToMin > 0);
+  const overMax = allItems.filter(item => item.overMaxAmount > 0);
 
-  if (!missing.length) {
-    els.missingList.innerHTML = `<li>Ingen mangler markeret endnu.<small>Fjern flueben ved et item for at markere det som mangler.</small></li>`;
+  if (!missing.length && !overMax.length) {
+    els.missingList.innerHTML = `<li class="todo-empty">Ingen mangler lige nu.<small>Alle items er over min, og intet er over max.</small></li>`;
     return;
   }
 
-  els.missingList.innerHTML = missing.map(item => `
-    <li>
-      ${escapeHtml(item.name)}
-      <small>${escapeHtml(item.boxName)}</small>
+  const missingHtml = missing.map(item => renderTodoItem(item)).join("");
+  const overMaxHtml = overMax.map(item => `
+    <li class="todo-overmax">
+      <strong>${escapeHtml(item.name)} — ${toAmount(item.currentAmount)} / max ${toAmount(item.maxAmount)}</strong>
+      <small>Box: ${escapeHtml(item.boxName)} — over max med ${item.overMaxAmount}</small>
+      <button class="ghost todo-action" type="button" data-jump-box="${escapeHtml(item.boxId)}" data-jump-item="${escapeHtml(item.id)}">Hop til box</button>
     </li>
   `).join("");
+
+  els.missingList.innerHTML = `
+    ${missingHtml}
+    ${overMaxHtml ? `<li class="todo-section-label">Over max</li>${overMaxHtml}` : ""}
+  `;
+
+  els.missingList.querySelectorAll("[data-jump-box]").forEach(button => {
+    button.addEventListener("click", () => jumpToBox(button.dataset.jumpBox, button.dataset.jumpItem));
+  });
+  els.missingList.querySelectorAll("[data-toggle-guide]").forEach(button => {
+    button.addEventListener("click", () => toggleGuide(button.dataset.toggleGuide));
+  });
+}
+
+function renderTodoItem(item) {
+  const guide = getItemGuide(item.name);
+  const guideId = `guide-${item.boxId}-${item.id}`;
+  const riskClass = `risk-${normalizeRiskClass(guide.riskLevel)}`;
+
+  return `
+    <li class="todo-item">
+      <div class="todo-topline">
+        <strong>${escapeHtml(item.name)} — Mangler til min: ${item.missingToMin}</strong>
+        <span class="risk-badge ${riskClass}">Risiko: ${escapeHtml(guide.riskLevel)}</span>
+      </div>
+      <small>Box: ${escapeHtml(item.boxName)} · ${escapeHtml(item.category)} · Nuværende ${toAmount(item.currentAmount)} / Min ${toAmount(item.minAmount)} / Max ${formatMaxAmount(item.maxAmount)}</small>
+      <div class="todo-actions">
+        <button class="ghost todo-action" type="button" data-jump-box="${escapeHtml(item.boxId)}" data-jump-item="${escapeHtml(item.id)}">Hop til box</button>
+        <button class="ghost todo-action" type="button" data-toggle-guide="${escapeHtml(guideId)}">Vis guide</button>
+      </div>
+      <div id="${escapeHtml(guideId)}" class="guide-panel hidden">
+        ${renderGuideDetails(guide, item.customNote)}
+      </div>
+    </li>
+  `;
+}
+
+function renderGuideDetails(guide, customNote = "") {
+  return `
+    <dl>
+      <div><dt>Findes lettest</dt><dd>${escapeHtml(guide.bestSource)}</dd></div>
+      <div><dt>Alternativer</dt><dd>${escapeHtml(guide.alternativeSources)}</dd></div>
+      <div><dt>Tip</dt><dd>${escapeHtml(guide.tip)}</dd></div>
+      <div><dt>Risiko</dt><dd>${escapeHtml(guide.riskLevel)}</dd></div>
+      ${guide.monuments ? `<div><dt>Monuments</dt><dd>${escapeHtml(guide.monuments)}</dd></div>` : ""}
+      ${guide.requirements ? `<div><dt>Krav</dt><dd>${escapeHtml(guide.requirements)}</dd></div>` : ""}
+      ${customNote ? `<div><dt>Egen note</dt><dd>${escapeHtml(customNote)}</dd></div>` : ""}
+    </dl>
+  `;
+}
+
+function jumpToBox(boxId, itemId) {
+  const ensureVisible = () => {
+    const boxEl = els.boxGrid.querySelector(`[data-box-id="${cssEscape(boxId)}"]`);
+    if (!boxEl) return;
+    boxEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    boxEl.classList.add("box-highlight");
+    const itemEl = boxEl.querySelector(`[data-item-id="${cssEscape(itemId)}"]`);
+    itemEl?.classList.add("item-highlight");
+    window.setTimeout(() => {
+      boxEl.classList.remove("box-highlight");
+      itemEl?.classList.remove("item-highlight");
+    }, 1800);
+  };
+
+  if (currentSearch || currentCategory !== "all") {
+    currentSearch = "";
+    currentCategory = "all";
+    els.searchInput.value = "";
+    els.filterCategory.value = "all";
+    renderBoxes();
+    window.requestAnimationFrame(ensureVisible);
+  } else {
+    ensureVisible();
+  }
+}
+
+function toggleGuide(guideId) {
+  const panel = document.getElementById(guideId);
+  const button = els.missingList.querySelector(`[data-toggle-guide="${cssEscape(guideId)}"]`);
+  if (!panel || !button) return;
+  const isHidden = panel.classList.toggle("hidden");
+  button.textContent = isHidden ? "Vis guide" : "Skjul guide";
+}
+
+function getItemGuide(itemName) {
+  return itemGuides.get(normalizeItemKey(itemName)) || {
+    category: "Diverse",
+    bestSource: "Ingen guide endnu",
+    alternativeSources: "Tilføj itemet til guide-listen i app.js",
+    tip: "Tilføj itemet til guide-listen i app.js",
+    riskLevel: "Ukendt"
+  };
+}
+
+function normalizeRiskClass(value) {
+  return String(value || "ukendt")
+    .toLowerCase()
+    .replaceAll("ø", "oe")
+    .replaceAll("å", "aa")
+    .replaceAll("æ", "ae")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return CSS.escape(String(value));
+  return String(value).replaceAll('"', '\\"');
 }
 
 function renderBoxes() {
   const filtered = state.boxes.filter(box => {
     const categoryOk = currentCategory === "all" || box.category === currentCategory;
-    const haystack = [box.name, box.category, box.location, box.notes, ...(box.items || []).map(i => i.name)].join(" ").toLowerCase();
+    const haystack = [
+      box.name,
+      box.category,
+      box.location,
+      box.notes,
+      ...(box.items || []).flatMap(item => [
+        item.name,
+        item.category,
+        item.customNote,
+        getGuideSearchText(item.name)
+      ])
+    ].join(" ").toLowerCase();
     const searchOk = !currentSearch || haystack.includes(currentSearch);
     return categoryOk && searchOk;
   });
@@ -291,7 +923,7 @@ function renderBoxes() {
   }
 
   els.boxGrid.innerHTML = filtered.map(box => `
-    <article class="panel loot-box" data-box-id="${box.id}">
+    <article class="panel loot-box" data-box-id="${escapeHtml(box.id)}" id="box-${escapeHtml(box.id)}">
       <header>
         <div>
           <h3>${escapeHtml(box.name)}</h3>
@@ -301,12 +933,7 @@ function renderBoxes() {
       </header>
 
       <ul class="item-list">
-        ${(box.items || []).map(item => `
-          <li>
-            <input type="checkbox" ${item.missing ? "" : "checked"} data-item-id="${item.id}" aria-label="${escapeHtml(item.name)}" />
-            <span class="${item.missing ? "missing" : ""}">${escapeHtml(item.name)}</span>
-          </li>
-        `).join("") || `<li>Ingen items endnu</li>`}
+        ${(box.items || []).map(item => renderItemRow(item, box)).join("") || `<li class="empty-item">Ingen items endnu</li>`}
       </ul>
 
       ${box.notes ? `<div class="notes">${escapeHtml(box.notes)}</div>` : ""}
@@ -320,9 +947,65 @@ function renderBoxes() {
 
   els.boxGrid.querySelectorAll("[data-edit-box]").forEach(btn => btn.addEventListener("click", () => openBoxDialog(btn.dataset.editBox)));
   els.boxGrid.querySelectorAll("[data-copy-box]").forEach(btn => btn.addEventListener("click", () => copyBoxList(btn.dataset.copyBox)));
-  els.boxGrid.querySelectorAll("input[type='checkbox'][data-item-id]").forEach(input => {
-    input.addEventListener("change", () => toggleItemMissing(input.closest(".loot-box").dataset.boxId, input.dataset.itemId, !input.checked));
+  els.boxGrid.querySelectorAll("[data-adjust-item]").forEach(button => {
+    button.addEventListener("click", () => adjustItemAmount(button.dataset.boxId, button.dataset.itemId, button.dataset.adjustItem));
   });
+  els.boxGrid.querySelectorAll("[data-quantity-field]").forEach(input => {
+    input.addEventListener("input", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.quantityField, input.value, false));
+    input.addEventListener("change", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.quantityField, input.value));
+  });
+  els.boxGrid.querySelectorAll("[data-note-field]").forEach(input => {
+    input.addEventListener("input", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.noteField, input.value, false));
+    input.addEventListener("change", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.noteField, input.value));
+  });
+}
+
+function renderItemRow(item, box) {
+  const currentAmount = toAmount(item.currentAmount);
+  const minAmount = toAmount(item.minAmount);
+  const maxAmount = toAmount(item.maxAmount);
+  const missingToMin = getMissingToMin(item);
+  const status = getItemStatus(item);
+  const guide = getItemGuide(item.name);
+
+  return `
+    <li class="item-row ${status.className}" data-item-id="${escapeHtml(item.id)}">
+      <div class="item-main">
+        <span class="item-name">${escapeHtml(item.name)}</span>
+        <span class="item-category">${escapeHtml(item.category || box.category)}</span>
+      </div>
+      <div class="item-quantity-grid">
+        <label>
+          <span>Nuværende</span>
+          <input type="number" min="0" step="1" inputmode="numeric" value="${currentAmount}" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-quantity-field="currentAmount" aria-label="Nuværende for ${escapeHtml(item.name)}" />
+        </label>
+        <label>
+          <span>Min</span>
+          <input type="number" min="0" step="1" inputmode="numeric" value="${minAmount}" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-quantity-field="minAmount" aria-label="Min for ${escapeHtml(item.name)}" />
+        </label>
+        <label>
+          <span>Max</span>
+          <input type="number" min="0" step="1" inputmode="numeric" value="${maxAmount}" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-quantity-field="maxAmount" aria-label="Max for ${escapeHtml(item.name)}" />
+        </label>
+        <span class="missing-badge ${status.badgeClass}">
+          <span>${escapeHtml(status.label)}</span>
+          <strong>${missingToMin}</strong>
+          <em>Mangler til min</em>
+        </span>
+      </div>
+      <label class="item-note">
+        <span>Egen note</span>
+        <input type="text" value="${escapeHtml(item.customNote || "")}" placeholder="Server-note, fx køb ved Outpost" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-note-field="customNote" aria-label="Egen note for ${escapeHtml(item.name)}" />
+      </label>
+      <div class="item-guide-line">Findes lettest: ${escapeHtml(guide.bestSource)} · Tip: ${escapeHtml(guide.tip)}</div>
+      <div class="item-actions">
+        <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="-1">-1</button>
+        <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="1">+1</button>
+        <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="stack">+ stack</button>
+        <button class="ghost qty-btn" type="button" data-edit-box="${escapeHtml(box.id)}">Ret</button>
+      </div>
+    </li>
+  `;
 }
 
 function openBoxDialog(id = null) {
@@ -332,7 +1015,7 @@ function openBoxDialog(id = null) {
   els.boxName.value = box?.name ?? "";
   els.boxCategory.value = box?.category ?? categories[0];
   els.boxLocation.value = box?.location ?? "";
-  els.boxItems.value = box ? (box.items || []).map(item => item.missing ? `[mangler] ${item.name}` : item.name).join("\n") : "";
+  els.boxItems.value = box ? (box.items || []).map(item => formatItemLine(item, box.category)).join("\n") : "";
   els.boxNotes.value = box?.notes ?? "";
   els.btnDeleteBox.classList.toggle("hidden", !box);
   els.boxDialog.showModal();
@@ -346,12 +1029,8 @@ function saveBoxFromDialog() {
     .split("\n")
     .map(line => line.trim())
     .filter(Boolean)
-    .map(line => {
-      const missing = /^\[mangler\]/i.test(line);
-      const name = line.replace(/^\[mangler\]\s*/i, "").trim();
-      const oldItem = oldBox?.items?.find(item => item.name.toLowerCase() === name.toLowerCase());
-      return { id: oldItem?.id ?? newId(), name, missing: oldItem?.missing ?? missing };
-    });
+    .map(line => parseItemLine(line, oldBox, els.boxCategory.value))
+    .filter(Boolean);
 
   const box = {
     id,
@@ -381,32 +1060,304 @@ function addTemplate(template) {
     name,
     category: template.category,
     location: template.location,
-    items: template.items.map(item => ({ id: newId(), name: item, missing: true })),
+    items: template.items.map(item => createTemplateItem(item, template.category)),
     notes: template.notes
   });
   saveState();
   render();
 }
 
-function toggleItemMissing(boxId, itemId, missing) {
+function updateItemField(boxId, itemId, field, value, rerender = true) {
+  if (!["currentAmount", "minAmount", "maxAmount", "customNote"].includes(field)) return;
+  const nextValue = field === "customNote" ? String(value || "").slice(0, 240) : toAmount(value);
   state.boxes = state.boxes.map(box => {
     if (box.id !== boxId) return box;
     return {
       ...box,
-      items: (box.items || []).map(item => item.id === itemId ? { ...item, missing } : item)
+      items: (box.items || []).map(item => item.id === itemId ? { ...item, [field]: nextValue } : item)
     };
   });
   saveState();
-  renderStats();
-  renderMissingList();
-  renderBoxes();
+  if (rerender) {
+    render();
+  } else {
+    renderStats();
+    renderMissingList();
+  }
+}
+
+function adjustItemAmount(boxId, itemId, adjustment) {
+  state.boxes = state.boxes.map(box => {
+    if (box.id !== boxId) return box;
+    return {
+      ...box,
+      items: (box.items || []).map(item => {
+        if (item.id !== itemId) return item;
+        const currentAmount = toAmount(item.currentAmount);
+        const maxAmount = toAmount(item.maxAmount);
+        const delta = adjustment === "stack" ? getStackSize(item.name) : Number(adjustment);
+        if (!Number.isFinite(delta)) return item;
+        const nextAmount = adjustment === "stack" && maxAmount > currentAmount
+          ? Math.min(currentAmount + delta, maxAmount)
+          : Math.max(currentAmount + delta, 0);
+        return { ...item, currentAmount: nextAmount };
+      })
+    };
+  });
+  saveState();
+  render();
 }
 
 function copyBoxList(boxId) {
   const box = state.boxes.find(b => b.id === boxId);
   if (!box) return;
-  const text = `${box.name}\n${(box.items || []).map(i => `- ${i.name}${i.missing ? " (mangler)" : ""}`).join("\n")}`;
+  const text = `${box.name}\n${(box.items || []).map(i => {
+    const missingToMin = getMissingToMin(i);
+    const status = getItemStatus(i).label;
+    const customNote = i.customNote ? ` - Egen note: ${i.customNote}` : "";
+    return `- ${i.name} (${i.category}) - Nuværende ${toAmount(i.currentAmount)} / Min ${toAmount(i.minAmount)} / Max ${formatMaxAmount(i.maxAmount)} - ${status}${missingToMin > 0 ? `, mangler ${missingToMin} til min` : ""}${customNote}`;
+  }).join("\n")}`;
   copyText(text, "Listen er kopieret.");
+}
+
+function parseItemLine(line, oldBox, fallbackCategory) {
+  const cleanLine = line.replace(/^\[mangler\]\s*/i, "").trim();
+  const parts = cleanLine.split("|").map(part => part.trim());
+  const name = parts[0];
+  if (!name) return null;
+
+  const oldItem = oldBox?.items?.find(item => item.name.toLowerCase() === name.toLowerCase());
+  let category = oldItem?.category || fallbackCategory || "Diverse";
+  let currentAmount = oldItem?.currentAmount ?? 0;
+  let minAmount = oldItem?.minAmount ?? oldItem?.limit ?? 0;
+  let maxAmount = oldItem?.maxAmount ?? 0;
+  let customNote = oldItem?.customNote ?? "";
+  const numericParts = [];
+
+  parts.slice(1).forEach(part => {
+    const labelValue = parseLabeledValue(part);
+    if (labelValue) {
+      if (labelValue.key === "currentAmount") currentAmount = labelValue.value;
+      if (labelValue.key === "minAmount") minAmount = labelValue.value;
+      if (labelValue.key === "maxAmount") maxAmount = labelValue.value;
+      if (labelValue.key === "customNote") customNote = labelValue.value;
+      return;
+    }
+
+    if (categories.includes(part)) {
+      category = part;
+    } else if (isAmountLike(part)) {
+      numericParts.push(part);
+    } else if (!customNote) {
+      category = normalizeCategory(part, category);
+    }
+  });
+
+  if (numericParts.length) currentAmount = numericParts[0];
+  if (numericParts.length > 1) minAmount = numericParts[1];
+  if (numericParts.length > 2) maxAmount = numericParts[2];
+
+  return {
+    id: oldItem?.id ?? newId(),
+    name,
+    category: normalizeCategory(category, fallbackCategory || "Diverse"),
+    currentAmount: toAmount(currentAmount),
+    minAmount: toAmount(minAmount),
+    maxAmount: toAmount(maxAmount),
+    customNote: String(customNote || "").slice(0, 240)
+  };
+}
+
+function formatItemLine(item, fallbackCategory) {
+  const category = normalizeCategory(item.category, fallbackCategory || "Diverse");
+  const note = item.customNote ? ` | Egen note ${item.customNote}` : "";
+  return `${item.name} | ${category} | Nuværende ${toAmount(item.currentAmount)} | Min ${toAmount(item.minAmount)} | Max ${toAmount(item.maxAmount)}${note}`;
+}
+
+function createTemplateItem(itemName, category) {
+  const range = getDefaultRange(itemName);
+  return {
+    id: newId(),
+    name: itemName,
+    category,
+    currentAmount: 0,
+    minAmount: range.minAmount,
+    maxAmount: range.maxAmount,
+    customNote: ""
+  };
+}
+
+function getDefaultRange(itemName) {
+  return defaultItemRanges.get(normalizeItemKey(itemName)) || {
+    minAmount: DEFAULT_TEMPLATE_MIN,
+    maxAmount: DEFAULT_TEMPLATE_MAX
+  };
+}
+
+function getStackSize(itemName) {
+  return stackSizes.get(normalizeItemKey(itemName)) ?? DEFAULT_STACK_SIZE;
+}
+
+function getMissingToMin(item) {
+  return Math.max(toAmount(item.minAmount) - toAmount(item.currentAmount), 0);
+}
+
+function getOverMaxAmount(item) {
+  const maxAmount = toAmount(item.maxAmount);
+  if (!maxAmount) return 0;
+  return Math.max(toAmount(item.currentAmount) - maxAmount, 0);
+}
+
+function getItemStatus(item) {
+  if (getMissingToMin(item) > 0) {
+    return { label: "Under min", className: "is-under-min", badgeClass: "warning" };
+  }
+  if (getOverMaxAmount(item) > 0) {
+    return { label: "Over max", className: "is-over-max", badgeClass: "danger" };
+  }
+  return { label: "OK", className: "is-ok", badgeClass: "ok" };
+}
+
+function formatMaxAmount(value) {
+  const amount = toAmount(value);
+  return amount ? String(amount) : "Ingen max";
+}
+
+function parseLabeledValue(part) {
+  const raw = String(part || "").trim();
+  const lower = raw.toLowerCase();
+  const multiWordLabels = [
+    ["egen note", "customNote"],
+    ["custom note", "customNote"],
+    ["mangler til min", "minAmount"]
+  ];
+
+  for (const [label, key] of multiWordLabels) {
+    if (lower.startsWith(`${label} `) || lower.startsWith(`${label}:`) || lower.startsWith(`${label}=`)) {
+      return { key, value: raw.slice(label.length).replace(/^[:=\s]+/, "") };
+    }
+  }
+
+  const match = raw.match(/^([^:]+?)(?:\s*[:=]\s*|\s+)(.+)$/);
+  if (!match) return null;
+  const label = match[1].trim().toLowerCase();
+  const value = match[2].trim();
+
+  if (["nuværende", "nuvaerende", "current", "currentamount", "amount", "antal"].includes(label)) {
+    return { key: "currentAmount", value };
+  }
+  if (["min", "minimum", "minamount"].includes(label)) {
+    return { key: "minAmount", value };
+  }
+  if (["max", "maximum", "maxamount"].includes(label)) {
+    return { key: "maxAmount", value };
+  }
+  if (["egen note", "note", "custom note", "customnote"].includes(label)) {
+    return { key: "customNote", value };
+  }
+  return null;
+}
+
+function getGuideSearchText(itemName) {
+  const guide = getItemGuide(itemName);
+  return [
+    guide.bestSource,
+    guide.alternativeSources,
+    guide.tip,
+    guide.riskLevel,
+    guide.monuments,
+    guide.requirements
+  ].filter(Boolean).join(" ");
+}
+
+function getStorageLayout() {
+  return sanitizeStorageLayout(state.storageLayout);
+}
+
+function createDefaultStorageLayout() {
+  return {
+    storageTypes: defaultStorageTypes.map(type => ({ ...type })),
+    generatedAt: null,
+    layoutPresetVersion: LAYOUT_PRESET_VERSION,
+    layoutStatus: "Ingen layout genereret endnu."
+  };
+}
+
+function refreshStorageDraftStatus(storage) {
+  const summary = getStorageSummary(storage.storageTypes || []);
+  storage.generatedAt = null;
+  storage.layoutStatus = getLayoutStatus(summary).label;
+  storage.totalBoxes = summary.totalBoxes;
+  storage.totalSlots = summary.totalSlots;
+  storage.recommendedMinSlots = RECOMMENDED_MIN_SLOTS;
+}
+
+function getStorageSummary(storageTypes) {
+  const totalBoxes = storageTypes.reduce((sum, type) => sum + toAmount(type.count), 0);
+  const totalSlots = storageTypes.reduce((sum, type) => sum + (toAmount(type.count) * toAmount(type.slots)), 0);
+  return {
+    totalBoxes,
+    totalSlots,
+    missingSlots: Math.max(RECOMMENDED_MIN_SLOTS - totalSlots, 0),
+    extraSlots: Math.max(totalSlots - RECOMMENDED_MIN_SLOTS, 0)
+  };
+}
+
+function getLayoutStatus(summary) {
+  if (summary.totalSlots < 120 || summary.totalBoxes < 3) {
+    return { kind: "tiny", label: "Ikke nok storage til fuldt anbefalet setup" };
+  }
+  if (summary.totalSlots < RECOMMENDED_MIN_SLOTS) {
+    return { kind: "limited", label: "Ikke nok storage" };
+  }
+  if (summary.totalSlots >= RECOMMENDED_MIN_SLOTS + 96 || summary.totalBoxes >= 14) {
+    return { kind: "plenty", label: "Ekstra storage" };
+  }
+  return { kind: "plenty", label: "Primær layout klar" };
+}
+
+function getNthPhysicalStorage(storageTypes, index) {
+  const expanded = storageTypes.flatMap(type => Array.from({ length: toAmount(type.count) }, (_, countIndex) => ({
+    label: type.label || type.name || "Custom box",
+    slots: toAmount(type.slots),
+    number: countIndex + 1
+  })));
+  const storage = expanded[index];
+  if (!storage) return null;
+  return {
+    ...storage,
+    label: `${storage.label} ${storage.number}`
+  };
+}
+
+function formatDateTime(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "ukendt tidspunkt";
+  return date.toLocaleString("da-DK", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function toAmount(value) {
+  if (value === "" || value === null || value === undefined) return 0;
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+  return Math.max(Math.floor(amount), 0);
+}
+
+function isAmountLike(value) {
+  return value !== "" && Number.isFinite(Number(value));
+}
+
+function normalizeCategory(value, fallback = "Diverse") {
+  return categories.includes(value) ? value : fallback;
+}
+
+function normalizeItemKey(value) {
+  return String(value || "").trim().toLowerCase();
 }
 
 function exportData() {
@@ -415,8 +1366,10 @@ function exportData() {
   const link = document.createElement("a");
   link.href = url;
   link.download = `rust-loot-plan-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function importData(event) {
@@ -427,11 +1380,20 @@ function importData(event) {
     try {
       const imported = JSON.parse(reader.result);
       if (!Array.isArray(imported.boxes)) throw new Error("Ugyldigt format");
-      state = sanitizeState({ wipeName: imported.wipeName ?? "", boxes: imported.boxes });
+      state = sanitizeState({
+        wipeName: imported.wipeName ?? "",
+        boxes: imported.boxes,
+        storageLayout: imported.storageLayout || {
+          storageTypes: imported.storageTypes,
+          generatedAt: imported.generatedAt,
+          layoutPresetVersion: imported.layoutPresetVersion
+        }
+      });
       saveState();
       render();
       alert("Plan importeret." + (activeGroup ? " Den bliver nu sendt live til gruppen." : ""));
     } catch (error) {
+      console.error("Kunne ikke importere loot-plan", error);
       alert("Kunne ikke importere filen. Tjek at det er en eksport fra Loot Organizer.");
     }
   };
@@ -469,13 +1431,26 @@ async function connectLive() {
     planRef = ref(db, `plans/${activeGroup}`);
 
     if (unlistenPlan) unlistenPlan();
+    let hasHandledInitialSnapshot = false;
     unlistenPlan = onValue(planRef, snapshot => {
       const value = snapshot.val();
       if (!value) {
+        if (!hasHandledInitialSnapshot) {
+          hasHandledInitialSnapshot = true;
+          applyingRemote = true;
+          state = createStarterState();
+          localStorage.setItem(localStateKey(activeGroup), JSON.stringify(state));
+          render();
+          applyingRemote = false;
+          pushStateNow();
+          return;
+        }
+        console.error("Firebase load returned empty plan after initial sync", { group: activeGroup });
         pushStateNow();
         return;
       }
 
+      hasHandledInitialSnapshot = true;
       applyingRemote = true;
       state = sanitizeState(value);
       localStorage.setItem(localStateKey(activeGroup), JSON.stringify(state));
@@ -485,14 +1460,14 @@ async function connectLive() {
       setFirebaseStatus("online", `Live: ${activeGroup}`);
       updateLastUpdated(value.updatedAt, value.updatedBy);
     }, error => {
-      console.error(error);
+      console.error("Kunne ikke læse live-plan fra Firebase", { group: activeGroup, error });
       setFirebaseStatus("offline", "Live fejl / permission denied");
       alert("Kunne ikke læse live-planen. Tjek Firebase rules og gruppe-kode.");
     });
 
     setupPresence();
   } catch (error) {
-    console.error("Kunne ikke forbinde", error);
+    console.error("Kunne ikke forbinde til Firebase", { group: activeGroup, error });
     const code = error?.code ? ` (${error.code})` : "";
     setFirebaseStatus("offline", `Kunne ikke forbinde${code}`);
     alert("Kunne ikke forbinde til Firebase. Tjek firebase-config.js, databaseURL og at Realtime Database Rules fra v5 er publish’et.");
@@ -540,9 +1515,13 @@ function toFirebaseBoxes(boxes) {
 }
 
 function fromFirebaseBoxes(rawBoxes) {
-  if (Array.isArray(rawBoxes)) return rawBoxes;
-  if (rawBoxes && typeof rawBoxes === "object") {
-    return Object.entries(rawBoxes)
+  return fromFirebaseList(rawBoxes);
+}
+
+function fromFirebaseList(rawValue) {
+  if (Array.isArray(rawValue)) return rawValue;
+  if (rawValue && typeof rawValue === "object") {
+    return Object.entries(rawValue)
       .filter(([key]) => key !== "__empty")
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([, value]) => value);
@@ -560,9 +1539,10 @@ async function pushStateNow() {
   const payload = {
     wipeName: state.wipeName || "",
     boxes: toFirebaseBoxes(state.boxes),
+    storageLayout: sanitizeStorageLayout(state.storageLayout),
     updatedAt: Date.now(),
     updatedBy: getPlayerName(),
-    version: 5
+    version: 8
   };
 
   try {
@@ -585,28 +1565,82 @@ function loadState(group) {
     const oldSaved = localStorage.getItem("rust-loot-organizer-v1");
     if (oldSaved) return sanitizeState(JSON.parse(oldSaved));
   } catch (error) {
-    console.warn("Kunne ikke læse gemt data", error);
+    console.error("Kunne ikke læse gemt lokal loot-plan", { group, error });
   }
-  return { wipeName: "", boxes: [] };
+  return createStarterState();
 }
 
 function sanitizeState(value) {
   const boxes = fromFirebaseBoxes(value?.boxes);
   return {
     wipeName: typeof value?.wipeName === "string" ? value.wipeName : "",
-    boxes: boxes.map(box => ({
-      id: String(box.id || newId()),
-      name: String(box.name || "Unavngivet boks").slice(0, 80),
-      category: categories.includes(box.category) ? box.category : "Diverse",
-      location: String(box.location || "").slice(0, 140),
-      notes: String(box.notes || "").slice(0, 1000),
-      items: Array.isArray(box.items) ? box.items.map(item => ({
-        id: String(item.id || newId()),
-        name: String(item.name || "Item").slice(0, 80),
-        missing: Boolean(item.missing)
-      })).slice(0, 80) : []
-    })).slice(0, 80)
+    storageLayout: sanitizeStorageLayout(value?.storageLayout),
+    boxes: boxes.map(sanitizeBox).slice(0, 80)
   };
+}
+
+function sanitizeBox(box) {
+  const category = normalizeCategory(box?.category, "Diverse");
+  return {
+    id: String(box?.id || newId()),
+    name: String(box?.name || "Unavngivet boks").slice(0, 80),
+    category,
+    location: String(box?.location || "").slice(0, 140),
+    notes: String(box?.notes || "").slice(0, 1000),
+    items: fromFirebaseList(box?.items).map(item => sanitizeItem(item, category)).slice(0, 80)
+  };
+}
+
+function sanitizeStorageLayout(value) {
+  const storedTypes = Array.isArray(value?.storageTypes) ? value.storageTypes : [];
+  const byId = new Map(storedTypes.map(type => [String(type?.id || newId()), type]));
+  const fixedTypes = defaultStorageTypes.map(defaultType => {
+    const stored = byId.get(defaultType.id) || {};
+    return {
+      ...defaultType,
+      count: toAmount(stored.count ?? defaultType.count),
+      slots: toAmount(stored.slots ?? defaultType.slots) || defaultType.slots
+    };
+  });
+  const customTypes = storedTypes
+    .filter(type => !defaultStorageTypes.some(defaultType => defaultType.id === type?.id))
+    .map(type => ({
+      id: String(type?.id || newId()),
+      label: String(type?.label || type?.name || "Custom box").slice(0, 60),
+      name: String(type?.name || type?.label || "Custom box").slice(0, 60),
+      count: toAmount(type?.count),
+      slots: Math.max(toAmount(type?.slots), 1),
+      fixed: false
+    }))
+    .slice(0, 20);
+
+  return {
+    storageTypes: [...fixedTypes, ...customTypes],
+    generatedAt: Number.isFinite(Number(value?.generatedAt)) ? Number(value.generatedAt) : null,
+    layoutPresetVersion: String(value?.layoutPresetVersion || LAYOUT_PRESET_VERSION),
+    layoutStatus: String(value?.layoutStatus || "Ingen layout genereret endnu.").slice(0, 160),
+    totalBoxes: toAmount(value?.totalBoxes),
+    totalSlots: toAmount(value?.totalSlots),
+    recommendedMinSlots: toAmount(value?.recommendedMinSlots || RECOMMENDED_MIN_SLOTS)
+  };
+}
+
+function sanitizeItem(item, fallbackCategory) {
+  const migratedMin = item?.minAmount ?? item?.min ?? item?.minimum ?? item?.limit ?? item?.targetAmount ?? item?.desiredLimit;
+  const migratedMax = item?.maxAmount ?? item?.max ?? item?.maximum;
+  return {
+    id: String(item?.id || newId()),
+    name: String(item?.name || "Item").slice(0, 80),
+    category: normalizeCategory(item?.category, fallbackCategory || "Diverse"),
+    currentAmount: toAmount(item?.currentAmount ?? item?.current ?? item?.amount),
+    minAmount: toAmount(migratedMin),
+    maxAmount: toAmount(migratedMax),
+    customNote: String(item?.customNote ?? item?.guideNote ?? item?.note ?? "").slice(0, 240)
+  };
+}
+
+function createStarterState() {
+  return { wipeName: "", storageLayout: createDefaultStorageLayout(), boxes: [] };
 }
 
 function setFirebaseConfigStatus() {
