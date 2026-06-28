@@ -1,69 +1,99 @@
-# Rust Loot Organizer Live - v0.8
+# Rust Loot Organizer Live - v1.1.2
 
 Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Database.
 
 ## Test-before-live workflow
 
-Alle nye ændringer skal laves og testes på en test-branch først. Denne version ligger på:
+Alle nye ændringer skal laves og testes på en test-branch først. Live-versionen ligger på:
 
-`test/v0.8-storage-layout-generator`
+`main`
 
 Merge ikke til `main`, før test-versionen er godkendt. GitHub Pages live-siden deployer stadig fra `main`.
 
-## Hvad er ændret i v0.8
+## Hvad er ændret i v1.1.2
 
-v0.8 tilføjer en Storage layout generator:
+v1.1.2 retter layoutet for `Tilføj item` inde i hver storage box:
 
-- vælg hvilke storage bokse gruppen har
-- se total bokse, total slots, anbefalet minimum og manglende/ekstra slots
-- generér et realistisk Rust loot-layout ud fra kapacitet
-- genererede bokse er normale redigerbare storage boxes
-- genererede items bruger `Nuværende`, `Min`, `Max` og `Mangler til min`
-- storage settings syncer live via Firebase og følger med eksport/import
-- print viser en kompakt storage summary
+- formularen er nu indeholdt i box-kortet og bryder ikke vandret ud
+- desktop/tablet bruger en opdelt grid med item/kategori, mængder og note/knap
+- smalle kort og mobil stabler felterne lodret
+- autocomplete-forslag vises under item-feltet inde i formularen
+- forslaglisten har kun vertikal scroll og ingen horisontal overflow
 
-## Storage layout generator
+## Hvad er ændret i v1.1.1-test
 
-Gå til sektionen `Storage layout generator` og udfyld antal bokse:
+v1.1.1-test er en lille UI-fix branch for autocomplete på mobil:
 
-- Stor boks: 48 slots
-- Lille boks: 18 slots
-- Locker: 36 slots
-- Køleskab: 42 slots
-- TC: 24 slots
-- Drop box: 12 slots
-- Vending machine: 30 slots
+- større forslag-rækker og bedre finger-tap afstand
+- større item navn og mere læsbar sekundær tekst
+- dropdown matcher input/card bredde
+- kun vertikal scroll i forslaglisten, ingen horisontal scroll
+- mobil 390px holder dropdown inde i viewport
 
-Du kan også tilføje en custom box type med eget navn, antal og slots.
+## Hvad er ændret i v1.1-test
 
-Tryk `Brug anbefalet setup` for et godt test-setup, eller indtast egne tal. Tryk derefter `Generér layout`.
+v1.1-test bygger på v1.0 bilingual items og tilføjer dynamisk item autocomplete:
 
-Hvis der allerede findes bokse i planen, spørger appen før layoutet erstattes.
+- forslag vises mens man skriver i `Tilføj item` / `Add item`
+- forslag søger i danske navne, canonical Rust navne, aliases og kategorier
+- valg af forslag sætter stabilt `itemId`
+- kategori, Min og Max auto-fyldes straks ved valg
+- keyboard support: pil op/ned, Enter og Escape
+- custom ukendte items kan stadig tilføjes uden match
+- autocomplete er mobilvenlig ved 390px
 
-## Kapacitet
+v1.0-test tilføjede bilingual Danish/English support oven på v0.9 manual box workflow:
 
-Slot-beregningen er vejledende og baseret på item-linjer, ikke fuld Rust stack-simulation.
+- sprogskifter mellem `Dansk` og `English`
+- valgt sprog gemmes kun lokalt i browserens `localStorage`
+- UI labels, kategorier, box type navne, To-do guide og print følger valgt sprog
+- central item registry med stabile `itemId` værdier og korrekte canonical Rust item names
+- item dropdown viser danske navne plus Rust-navn i dansk mode, fx `Pistolpatroner (Pistol Bullet)`
+- engelsk mode viser canonical Rust item names, fx `Pistol Bullet`
+- søgning finder både danske og engelske/Rust navne, fx `patroner`, `bullet`, `svovl`, `sulfur`
+- gamle Firebase/export items uden `itemId` migreres sikkert ved load/import, hvis navnet kan matches
+- ukendte custom items bliver ved med at virke og vises med originalt navn
 
-Appen bruger ca. 360 slots som anbefalet minimum. Hvis der er få slots, kombineres kategorier. Hvis der er ekstra slots, oprettes overflow/backup bokse.
+## Manuel boksopsætning
 
-## Genererede Min/Max værdier
+Brug sektionen `Manuel boksopsætning` / `Manual box setup` først, hvis I vil styre layoutet selv.
 
-Generatoren bruger samme Min/Max-system som resten af appen. Eksempler:
+1. Vælg `Box type`.
+2. Vælg antal bokse.
+3. Skriv et box navn eller prefix, fx `Loot`.
+4. Tryk `Opret bokse` / `Create boxes`.
 
-- Stone: Min 10000, Max 30000
-- Wood: Min 5000, Max 20000
-- Metal fragments: Min 5000, Max 15000
-- Sulfur: Min 2500, Max 10000
-- Pistol Bullets: Min 128, Max 512
-- Syringe: Min 20, Max 60
-- Scrap: Min 500, Max 3000
-- CCTV Camera: Min 2, Max 10
+Kendte box typer vises bilingualt:
 
-`Mangler til min` beregnes altid i appen og gemmes ikke som separat felt.
+- Stor boks / Large Wood Box / 48 slots
+- Lille boks / Small Wood Box / 18 slots
+- Locker / 36 slots
+- Køleskab / Fridge / 42 slots
+- TC / Tool Cupboard / 24 slots
+- Drop box / Drop Box / 12 slots
+- Vending machine / Vending Machine / 30 slots
+- Brugerdefineret / Custom
 
-## Firebase
+## Items, Min/Max og To-do
 
-v0.8 bruger stadig Firebase Realtime Database uden Firebase Authentication.
+Hver boks har en `Tilføj item` / `Add item` form med:
+
+- dynamisk item autocomplete eller custom navn
+- kategori
+- `Nuværende` / `Current`
+- `Min`
+- `Max`
+- egen note
+
+Kendte items får auto-fill af kategori, Min og Max. Eksempel:
+
+Hvis man vælger `Pistol Bullet` fra forslagene, sættes `itemId`, `Ammo`, `Min 128` og `Max 512`.
+
+To-do listen viser items hvor `Nuværende < Min` / `Current < Min`, inklusive manglende antal og `Hop til box` / `Jump to box`.
+
+## Live sync
+
+Firebase Realtime Database bruges stadig uden Firebase Authentication.
 
 Når en gruppe-link åbnes:
 
@@ -71,33 +101,41 @@ Når en gruppe-link åbnes:
 2. Hvis gruppen findes, bruges remote planen.
 3. Hvis gruppen ikke findes, oprettes en tom starter-plan.
 
-Det beskytter eksisterende grupper mod at blive overskrevet af lokal browserdata.
+Sprogvalg syncer ikke via Firebase. To brugere kan derfor se samme gruppe på forskellige sprog.
 
-## Filer
+## Eksport, import og print
 
-- `index.html`
-- `style.css`
-- `app.js`
-- `firebase-config.js`
-- `firebase-config.example.js`
-- `database.rules.json`
-- `README.md`
+Eksport/import bevarer:
+
+- `itemId` for kendte items
+- originalt navn for custom items
+- current amount
+- Min/Max
+- kategori
+- noter
+- box type og slots
+- storage layout settings
+
+Import håndterer gamle exports uden `itemId` og forsøger at matche item-navne mod registry aliases.
+
+Print viser box navn, box type, slots, item, current/min/max, missing to min og status på det valgte sprog.
 
 ## Brug
 
-1. Åbn test-preview eller GitHub Pages-siden.
-2. Skriv dit navn.
-3. Generér eller indtast en gruppe-kode.
-4. Tryk `Start live`.
-5. Udfyld Storage layout generator.
-6. Tryk `Generér layout`.
-7. Tryk `Kopiér link` og send linket til gruppen.
+1. Åbn GitHub Pages-siden.
+2. Vælg `Dansk` eller `English`.
+3. Skriv dit navn.
+4. Generér eller indtast en gruppe-kode.
+5. Tryk `Start live`.
+6. Brug manuel boksopsætning til at oprette bokse.
+7. Tilføj items manuelt i de relevante bokse.
+8. Tryk `Kopiér link` / `Copy link` og send linket til gruppen.
 
 ## Fejlretning
 
 Hvis andre ikke kan forbinde:
 
-1. Tjek at test-preview eller GitHub Pages har den rigtige version-label.
+1. Tjek at GitHub Pages har version-label `v1.1.2`.
 2. Bed dem trykke Ctrl+F5 eller åbne linket i inkognito.
 3. Tjek at reglerne fra `database.rules.json` er published i Firebase.
 4. Tjek at alle bruger præcis samme gruppe-link eller samme gruppe-kode.
