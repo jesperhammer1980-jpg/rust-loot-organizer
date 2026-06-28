@@ -12,7 +12,8 @@
     <div>
       <p class="eyebrow">Rust helper · live group planner</p>
       <h1>Loot Organizer</h1>
-      <p class="subtitle">Fælles loot-plan for gruppen. Notér hvad der skal ligge i hver storage box, og se ændringer live.</p>
+      <p class="version-label">Rust Loot Organizer — v0.6-test</p>
+      <p class="subtitle">Fælles loot-plan for gruppen. Notér hvad der skal ligge i hver storage box, følg mængder og se ændringer live.</p>
     </div>
     <div class="header-actions">
       <button id="btnPrint" class="ghost">Print plan</button>
@@ -105,7 +106,7 @@
         <div class="panel-heading">
           <div>
             <h2>Mangler / To-do</h2>
-            <p>Items markeret som “mangler” samles her.</p>
+            <p>Items under deres limit samles her med antal.</p>
           </div>
         </div>
         <ul id="missingList" class="missing-list"></ul>
@@ -115,7 +116,7 @@
         <div class="panel-heading boxes-heading">
           <div>
             <h2>Storage boxes</h2>
-            <p>Notér præcist hvad der hører til i hver boks.</p>
+            <p>Notér præcist hvad der hører til i hver boks og hvor meget I mangler.</p>
           </div>
         </div>
         <div id="boxGrid" class="box-grid"></div>
@@ -148,8 +149,8 @@
           <input id="boxLocation" type="text" placeholder="Fx loot room venstre side, øverste boks" />
         </div>
         <div class="field full">
-          <label for="boxItems">Items — én pr. linje</label>
-          <textarea id="boxItems" rows="8" placeholder="Pistol bullets\nRevolver\nMedical syringe\nScrap"></textarea>
+          <label for="boxItems">Items — navn | kategori | nuværende | limit</label>
+          <textarea id="boxItems" rows="8" placeholder="Pistol Bullets | Ammo | 5 | 20&#10;Metal Fragments | Farm | 0 | 10000&#10;Syringe | Medical/Food | 0 | 20"></textarea>
         </div>
         <div class="field full">
           <label for="boxNotes">Noter</label>

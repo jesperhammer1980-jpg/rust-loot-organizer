@@ -8,6 +8,45 @@ const categories = [
   "Cards/Fuses", "Tøj/Armor", "Elektronik", "Diverse"
 ];
 
+const DEFAULT_TEMPLATE_LIMIT = 1;
+const DEFAULT_STACK_SIZE = 100;
+
+const defaultItemLimits = new Map(Object.entries({
+  "stone": 20000,
+  "wood": 10000,
+  "metal fragments": 10000,
+  "sulfur": 5000,
+  "charcoal": 5000,
+  "pistol bullets": 128,
+  "5.56 ammo": 128,
+  "5.56 rifle ammo": 128,
+  "syringe": 20,
+  "medical syringe": 20,
+  "bandage": 30,
+  "low grade fuel": 500
+}).map(([name, limit]) => [normalizeItemKey(name), limit]));
+
+const stackSizes = new Map(Object.entries({
+  "stone": 1000,
+  "wood": 1000,
+  "metal fragments": 1000,
+  "sulfur": 1000,
+  "sulfur ore": 1000,
+  "metal ore": 1000,
+  "charcoal": 1000,
+  "gun powder": 1000,
+  "pistol bullets": 128,
+  "5.56 ammo": 128,
+  "5.56 rifle ammo": 128,
+  "arrows": 64,
+  "handmade shells": 64,
+  "buckshot": 64,
+  "syringe": 2,
+  "medical syringe": 2,
+  "bandage": 3,
+  "low grade fuel": 500
+}).map(([name, amount]) => [normalizeItemKey(name), amount]));
+
 const defaultTemplates = [
   {
     name: "Våben",
@@ -34,7 +73,7 @@ const defaultTemplates = [
     name: "Farm",
     category: "Farm",
     location: "Tæt på furnace room",
-    items: ["Stone", "Metal Ore", "Sulfur Ore", "Wood", "Charcoal", "High Quality Metal Ore"],
+    items: ["Stone", "Metal Ore", "Sulfur Ore", "Wood", "Charcoal", "Low Grade Fuel", "High Quality Metal Ore"],
     notes: "Sulfur er raid-magnet. Gem det dybt i basen."
   },
   {
@@ -143,6 +182,10 @@ function init() {
   els.playerName.value = appSettings.playerName || "";
   els.groupCode.value = cleanGroupCode(queryGroup || defaultGroupCode || appSettings.groupCode || "");
 
+  if (firebaseConfigured && els.groupCode.value) {
+    state = createStarterState();
+  }
+
   setFirebaseConfigStatus();
   render();
 
@@ -242,7 +285,7 @@ function render() {
 
 function renderStats() {
   const allItems = state.boxes.flatMap(box => box.items || []);
-  const missing = allItems.filter(item => item.missing).length;
+  const missing = allItems.filter(item => getMissingAmount(item) > 0).length;
   els.statBoxes.textContent = state.boxes.length;
   els.statItems.textContent = allItems.length;
   els.statMissing.textContent = missing;
@@ -250,19 +293,19 @@ function renderStats() {
 
 function renderMissingList() {
   const missing = state.boxes.flatMap(box => (box.items || [])
-    .filter(item => item.missing)
-    .map(item => ({ ...item, boxName: box.name, boxId: box.id }))
+    .map(item => ({ ...item, missingAmount: getMissingAmount(item), boxName: box.name, boxId: box.id }))
+    .filter(item => item.missingAmount > 0)
   );
 
   if (!missing.length) {
-    els.missingList.innerHTML = `<li>Ingen mangler markeret endnu.<small>Fjern flueben ved et item for at markere det som mangler.</small></li>`;
+    els.missingList.innerHTML = `<li>Ingen mangler lige nu.<small>Alle items er opfyldt eller har limit 0.</small></li>`;
     return;
   }
 
   els.missingList.innerHTML = missing.map(item => `
     <li>
-      ${escapeHtml(item.name)}
-      <small>${escapeHtml(item.boxName)}</small>
+      <strong>${escapeHtml(item.name)}: mangler ${item.missingAmount}</strong>
+      <small>${escapeHtml(item.boxName)} · ${escapeHtml(item.category)} · Nuværende ${toAmount(item.currentAmount)} / Limit ${toAmount(item.limit)}</small>
     </li>
   `).join("");
 }
@@ -270,7 +313,7 @@ function renderMissingList() {
 function renderBoxes() {
   const filtered = state.boxes.filter(box => {
     const categoryOk = currentCategory === "all" || box.category === currentCategory;
-    const haystack = [box.name, box.category, box.location, box.notes, ...(box.items || []).map(i => i.name)].join(" ").toLowerCase();
+    const haystack = [box.name, box.category, box.location, box.notes, ...(box.items || []).flatMap(i => [i.name, i.category])].join(" ").toLowerCase();
     const searchOk = !currentSearch || haystack.includes(currentSearch);
     return categoryOk && searchOk;
   });
@@ -301,12 +344,7 @@ function renderBoxes() {
       </header>
 
       <ul class="item-list">
-        ${(box.items || []).map(item => `
-          <li>
-            <input type="checkbox" ${item.missing ? "" : "checked"} data-item-id="${item.id}" aria-label="${escapeHtml(item.name)}" />
-            <span class="${item.missing ? "missing" : ""}">${escapeHtml(item.name)}</span>
-          </li>
-        `).join("") || `<li>Ingen items endnu</li>`}
+        ${(box.items || []).map(item => renderItemRow(item, box)).join("") || `<li class="empty-item">Ingen items endnu</li>`}
       </ul>
 
       ${box.notes ? `<div class="notes">${escapeHtml(box.notes)}</div>` : ""}
@@ -320,9 +358,49 @@ function renderBoxes() {
 
   els.boxGrid.querySelectorAll("[data-edit-box]").forEach(btn => btn.addEventListener("click", () => openBoxDialog(btn.dataset.editBox)));
   els.boxGrid.querySelectorAll("[data-copy-box]").forEach(btn => btn.addEventListener("click", () => copyBoxList(btn.dataset.copyBox)));
-  els.boxGrid.querySelectorAll("input[type='checkbox'][data-item-id]").forEach(input => {
-    input.addEventListener("change", () => toggleItemMissing(input.closest(".loot-box").dataset.boxId, input.dataset.itemId, !input.checked));
+  els.boxGrid.querySelectorAll("[data-adjust-item]").forEach(button => {
+    button.addEventListener("click", () => adjustItemAmount(button.dataset.boxId, button.dataset.itemId, button.dataset.adjustItem));
   });
+  els.boxGrid.querySelectorAll("[data-quantity-field]").forEach(input => {
+    input.addEventListener("input", () => updateItemQuantity(input.dataset.boxId, input.dataset.itemId, input.dataset.quantityField, input.value, false));
+    input.addEventListener("change", () => updateItemQuantity(input.dataset.boxId, input.dataset.itemId, input.dataset.quantityField, input.value));
+  });
+}
+
+function renderItemRow(item, box) {
+  const currentAmount = toAmount(item.currentAmount);
+  const limit = toAmount(item.limit);
+  const missingAmount = getMissingAmount(item);
+  const statusLabel = missingAmount > 0 ? "Mangler" : "Opfyldt";
+
+  return `
+    <li class="item-row ${missingAmount > 0 ? "is-missing" : "is-filled"}" data-item-id="${escapeHtml(item.id)}">
+      <div class="item-main">
+        <span class="item-name">${escapeHtml(item.name)}</span>
+        <span class="item-category">${escapeHtml(item.category || box.category)}</span>
+      </div>
+      <div class="item-quantity-grid">
+        <label>
+          <span>Nuværende</span>
+          <input type="number" min="0" step="1" inputmode="numeric" value="${currentAmount}" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-quantity-field="currentAmount" aria-label="Nuværende for ${escapeHtml(item.name)}" />
+        </label>
+        <label>
+          <span>Limit</span>
+          <input type="number" min="0" step="1" inputmode="numeric" value="${limit}" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-quantity-field="limit" aria-label="Limit for ${escapeHtml(item.name)}" />
+        </label>
+        <span class="missing-badge ${missingAmount > 0 ? "warning" : "ok"}">
+          <span>${statusLabel}</span>
+          <strong>${missingAmount}</strong>
+        </span>
+      </div>
+      <div class="item-actions">
+        <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="-1">-1</button>
+        <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="1">+1</button>
+        <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="stack">+ stack</button>
+        <button class="ghost qty-btn" type="button" data-edit-box="${escapeHtml(box.id)}">Ret</button>
+      </div>
+    </li>
+  `;
 }
 
 function openBoxDialog(id = null) {
@@ -332,7 +410,7 @@ function openBoxDialog(id = null) {
   els.boxName.value = box?.name ?? "";
   els.boxCategory.value = box?.category ?? categories[0];
   els.boxLocation.value = box?.location ?? "";
-  els.boxItems.value = box ? (box.items || []).map(item => item.missing ? `[mangler] ${item.name}` : item.name).join("\n") : "";
+  els.boxItems.value = box ? (box.items || []).map(item => formatItemLine(item, box.category)).join("\n") : "";
   els.boxNotes.value = box?.notes ?? "";
   els.btnDeleteBox.classList.toggle("hidden", !box);
   els.boxDialog.showModal();
@@ -346,12 +424,8 @@ function saveBoxFromDialog() {
     .split("\n")
     .map(line => line.trim())
     .filter(Boolean)
-    .map(line => {
-      const missing = /^\[mangler\]/i.test(line);
-      const name = line.replace(/^\[mangler\]\s*/i, "").trim();
-      const oldItem = oldBox?.items?.find(item => item.name.toLowerCase() === name.toLowerCase());
-      return { id: oldItem?.id ?? newId(), name, missing: oldItem?.missing ?? missing };
-    });
+    .map(line => parseItemLine(line, oldBox, els.boxCategory.value))
+    .filter(Boolean);
 
   const box = {
     id,
@@ -381,32 +455,148 @@ function addTemplate(template) {
     name,
     category: template.category,
     location: template.location,
-    items: template.items.map(item => ({ id: newId(), name: item, missing: true })),
+    items: template.items.map(item => createTemplateItem(item, template.category)),
     notes: template.notes
   });
   saveState();
   render();
 }
 
-function toggleItemMissing(boxId, itemId, missing) {
+function updateItemQuantity(boxId, itemId, field, value, rerender = true) {
+  if (!["currentAmount", "limit"].includes(field)) return;
+  const amount = toAmount(value);
   state.boxes = state.boxes.map(box => {
     if (box.id !== boxId) return box;
     return {
       ...box,
-      items: (box.items || []).map(item => item.id === itemId ? { ...item, missing } : item)
+      items: (box.items || []).map(item => item.id === itemId ? { ...item, [field]: amount } : item)
     };
   });
   saveState();
-  renderStats();
-  renderMissingList();
-  renderBoxes();
+  if (rerender) {
+    render();
+  } else {
+    renderStats();
+    renderMissingList();
+  }
+}
+
+function adjustItemAmount(boxId, itemId, adjustment) {
+  state.boxes = state.boxes.map(box => {
+    if (box.id !== boxId) return box;
+    return {
+      ...box,
+      items: (box.items || []).map(item => {
+        if (item.id !== itemId) return item;
+        const currentAmount = toAmount(item.currentAmount);
+        const limit = toAmount(item.limit);
+        const delta = adjustment === "stack" ? getStackSize(item.name) : Number(adjustment);
+        if (!Number.isFinite(delta)) return item;
+        const nextAmount = adjustment === "stack" && limit > currentAmount
+          ? Math.min(currentAmount + delta, limit)
+          : Math.max(currentAmount + delta, 0);
+        return { ...item, currentAmount: nextAmount };
+      })
+    };
+  });
+  saveState();
+  render();
 }
 
 function copyBoxList(boxId) {
   const box = state.boxes.find(b => b.id === boxId);
   if (!box) return;
-  const text = `${box.name}\n${(box.items || []).map(i => `- ${i.name}${i.missing ? " (mangler)" : ""}`).join("\n")}`;
+  const text = `${box.name}\n${(box.items || []).map(i => {
+    const missingAmount = getMissingAmount(i);
+    return `- ${i.name} (${i.category}) - Nuværende ${toAmount(i.currentAmount)} / Limit ${toAmount(i.limit)} - ${missingAmount > 0 ? `Mangler ${missingAmount}` : "Opfyldt"}`;
+  }).join("\n")}`;
   copyText(text, "Listen er kopieret.");
+}
+
+function parseItemLine(line, oldBox, fallbackCategory) {
+  const cleanLine = line.replace(/^\[mangler\]\s*/i, "").trim();
+  const parts = cleanLine.split("|").map(part => part.trim());
+  const name = parts[0];
+  if (!name) return null;
+
+  const oldItem = oldBox?.items?.find(item => item.name.toLowerCase() === name.toLowerCase());
+  let category = oldItem?.category || fallbackCategory || "Diverse";
+  let currentAmount = oldItem?.currentAmount ?? 0;
+  let limit = oldItem?.limit ?? 0;
+
+  if (parts.length >= 4) {
+    category = normalizeCategory(parts[1], category);
+    currentAmount = parts[2];
+    limit = parts[3];
+  } else if (parts.length === 3) {
+    if (isAmountLike(parts[1])) {
+      currentAmount = parts[1];
+      limit = parts[2];
+    } else {
+      category = normalizeCategory(parts[1], category);
+      limit = parts[2];
+    }
+  } else if (parts.length === 2) {
+    if (isAmountLike(parts[1])) {
+      limit = parts[1];
+    } else {
+      category = normalizeCategory(parts[1], category);
+    }
+  }
+
+  return {
+    id: oldItem?.id ?? newId(),
+    name,
+    category: normalizeCategory(category, fallbackCategory || "Diverse"),
+    currentAmount: toAmount(currentAmount),
+    limit: toAmount(limit)
+  };
+}
+
+function formatItemLine(item, fallbackCategory) {
+  const category = normalizeCategory(item.category, fallbackCategory || "Diverse");
+  return `${item.name} | ${category} | ${toAmount(item.currentAmount)} | ${toAmount(item.limit)}`;
+}
+
+function createTemplateItem(itemName, category) {
+  return {
+    id: newId(),
+    name: itemName,
+    category,
+    currentAmount: 0,
+    limit: getDefaultLimit(itemName)
+  };
+}
+
+function getDefaultLimit(itemName) {
+  return defaultItemLimits.get(normalizeItemKey(itemName)) ?? DEFAULT_TEMPLATE_LIMIT;
+}
+
+function getStackSize(itemName) {
+  return stackSizes.get(normalizeItemKey(itemName)) ?? DEFAULT_STACK_SIZE;
+}
+
+function getMissingAmount(item) {
+  return Math.max(toAmount(item.limit) - toAmount(item.currentAmount), 0);
+}
+
+function toAmount(value) {
+  if (value === "" || value === null || value === undefined) return 0;
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+  return Math.max(Math.floor(amount), 0);
+}
+
+function isAmountLike(value) {
+  return value !== "" && Number.isFinite(Number(value));
+}
+
+function normalizeCategory(value, fallback = "Diverse") {
+  return categories.includes(value) ? value : fallback;
+}
+
+function normalizeItemKey(value) {
+  return String(value || "").trim().toLowerCase();
 }
 
 function exportData() {
@@ -432,6 +622,7 @@ function importData(event) {
       render();
       alert("Plan importeret." + (activeGroup ? " Den bliver nu sendt live til gruppen." : ""));
     } catch (error) {
+      console.error("Kunne ikke importere loot-plan", error);
       alert("Kunne ikke importere filen. Tjek at det er en eksport fra Loot Organizer.");
     }
   };
@@ -469,13 +660,26 @@ async function connectLive() {
     planRef = ref(db, `plans/${activeGroup}`);
 
     if (unlistenPlan) unlistenPlan();
+    let hasHandledInitialSnapshot = false;
     unlistenPlan = onValue(planRef, snapshot => {
       const value = snapshot.val();
       if (!value) {
+        if (!hasHandledInitialSnapshot) {
+          hasHandledInitialSnapshot = true;
+          applyingRemote = true;
+          state = createStarterState();
+          localStorage.setItem(localStateKey(activeGroup), JSON.stringify(state));
+          render();
+          applyingRemote = false;
+          pushStateNow();
+          return;
+        }
+        console.error("Firebase load returned empty plan after initial sync", { group: activeGroup });
         pushStateNow();
         return;
       }
 
+      hasHandledInitialSnapshot = true;
       applyingRemote = true;
       state = sanitizeState(value);
       localStorage.setItem(localStateKey(activeGroup), JSON.stringify(state));
@@ -485,14 +689,14 @@ async function connectLive() {
       setFirebaseStatus("online", `Live: ${activeGroup}`);
       updateLastUpdated(value.updatedAt, value.updatedBy);
     }, error => {
-      console.error(error);
+      console.error("Kunne ikke læse live-plan fra Firebase", { group: activeGroup, error });
       setFirebaseStatus("offline", "Live fejl / permission denied");
       alert("Kunne ikke læse live-planen. Tjek Firebase rules og gruppe-kode.");
     });
 
     setupPresence();
   } catch (error) {
-    console.error("Kunne ikke forbinde", error);
+    console.error("Kunne ikke forbinde til Firebase", { group: activeGroup, error });
     const code = error?.code ? ` (${error.code})` : "";
     setFirebaseStatus("offline", `Kunne ikke forbinde${code}`);
     alert("Kunne ikke forbinde til Firebase. Tjek firebase-config.js, databaseURL og at Realtime Database Rules fra v5 er publish’et.");
@@ -540,9 +744,13 @@ function toFirebaseBoxes(boxes) {
 }
 
 function fromFirebaseBoxes(rawBoxes) {
-  if (Array.isArray(rawBoxes)) return rawBoxes;
-  if (rawBoxes && typeof rawBoxes === "object") {
-    return Object.entries(rawBoxes)
+  return fromFirebaseList(rawBoxes);
+}
+
+function fromFirebaseList(rawValue) {
+  if (Array.isArray(rawValue)) return rawValue;
+  if (rawValue && typeof rawValue === "object") {
+    return Object.entries(rawValue)
       .filter(([key]) => key !== "__empty")
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([, value]) => value);
@@ -562,7 +770,7 @@ async function pushStateNow() {
     boxes: toFirebaseBoxes(state.boxes),
     updatedAt: Date.now(),
     updatedBy: getPlayerName(),
-    version: 5
+    version: 6
   };
 
   try {
@@ -585,28 +793,43 @@ function loadState(group) {
     const oldSaved = localStorage.getItem("rust-loot-organizer-v1");
     if (oldSaved) return sanitizeState(JSON.parse(oldSaved));
   } catch (error) {
-    console.warn("Kunne ikke læse gemt data", error);
+    console.error("Kunne ikke læse gemt lokal loot-plan", { group, error });
   }
-  return { wipeName: "", boxes: [] };
+  return createStarterState();
 }
 
 function sanitizeState(value) {
   const boxes = fromFirebaseBoxes(value?.boxes);
   return {
     wipeName: typeof value?.wipeName === "string" ? value.wipeName : "",
-    boxes: boxes.map(box => ({
-      id: String(box.id || newId()),
-      name: String(box.name || "Unavngivet boks").slice(0, 80),
-      category: categories.includes(box.category) ? box.category : "Diverse",
-      location: String(box.location || "").slice(0, 140),
-      notes: String(box.notes || "").slice(0, 1000),
-      items: Array.isArray(box.items) ? box.items.map(item => ({
-        id: String(item.id || newId()),
-        name: String(item.name || "Item").slice(0, 80),
-        missing: Boolean(item.missing)
-      })).slice(0, 80) : []
-    })).slice(0, 80)
+    boxes: boxes.map(sanitizeBox).slice(0, 80)
   };
+}
+
+function sanitizeBox(box) {
+  const category = normalizeCategory(box?.category, "Diverse");
+  return {
+    id: String(box?.id || newId()),
+    name: String(box?.name || "Unavngivet boks").slice(0, 80),
+    category,
+    location: String(box?.location || "").slice(0, 140),
+    notes: String(box?.notes || "").slice(0, 1000),
+    items: fromFirebaseList(box?.items).map(item => sanitizeItem(item, category)).slice(0, 80)
+  };
+}
+
+function sanitizeItem(item, fallbackCategory) {
+  return {
+    id: String(item?.id || newId()),
+    name: String(item?.name || "Item").slice(0, 80),
+    category: normalizeCategory(item?.category, fallbackCategory || "Diverse"),
+    currentAmount: toAmount(item?.currentAmount ?? item?.current ?? item?.amount),
+    limit: toAmount(item?.limit ?? item?.targetAmount ?? item?.desiredLimit)
+  };
+}
+
+function createStarterState() {
+  return { wipeName: "", boxes: [] };
 }
 
 function setFirebaseConfigStatus() {

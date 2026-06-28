@@ -1,6 +1,19 @@
-# Rust Loot Organizer Live - v5
+# Rust Loot Organizer Live - v6
 
 Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Database.
+
+## Hvad er ændret i v6
+
+v6 tilføjer mængdestyring på hvert item i hver storage box:
+
+- `Nuværende`, `Limit` og beregnet `Mangler`
+- hurtige knapper til `-1`, `+1` og `+ stack`
+- `Mangler / To-do` viser antal, fx `Pistol Bullets: mangler 64`
+- topstatistikken `Mangler` tæller item-typer under deres limit
+- eksport/import og print indeholder mængder
+- gamle items uden mængder migreres sikkert med `Nuværende 0` og `Limit 0`
+
+Når en gruppe-link åbnes, læser appen Firebase først. Hvis gruppen findes, bruges remote planen. Hvis gruppen ikke findes, oprettes en tom starter-plan, så lokal browserdata ikke overskriver en eksisterende gruppe.
 
 ## Hvad er ændret i v5
 
@@ -47,6 +60,18 @@ Firebase web config er ikke et password. Realtime Database Rules styrer adgangen
 4. Tryk `Start live`.
 5. Tryk `Kopiér link` og send linket til gruppen.
 6. Andre brugere åbner linket og trykker `Start live`, hvis den ikke forbinder automatisk.
+
+## Mængder
+
+I en boks kan items skrives som:
+
+`Item navn | Kategori | Nuværende | Limit`
+
+Eksempel:
+
+`Pistol Bullets | Ammo | 5 | 20`
+
+`Mangler` beregnes altid i appen som `max(limit - nuværende, 0)` og gemmes ikke som et separat felt.
 
 ## Fejlretning
 
