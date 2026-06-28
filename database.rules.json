@@ -4,15 +4,15 @@
     ".write": false,
     "plans": {
       "$groupId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": "$groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)",
+        ".write": "$groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)"
       }
     },
     "presence": {
       "$groupId": {
-        ".read": "auth != null",
-        "$uid": {
-          ".write": "auth != null && auth.uid == $uid"
+        ".read": "$groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)",
+        "$clientId": {
+          ".write": "$groupId.matches(/^[A-Za-z0-9_-]{6,64}$/) && $clientId.matches(/^[A-Za-z0-9_-]{6,128}$/)"
         }
       }
     }

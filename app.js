@@ -1,6 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import { getDatabase, ref, onValue, set, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
 const LOCAL_SETTINGS_KEY = "rust-loot-live-settings-v2";
 
@@ -127,14 +126,12 @@ let applyingRemote = false;
 let saveTimer = null;
 
 let firebaseApp = null;
-let auth = null;
 let db = null;
 let activeGroup = "";
 let planRef = null;
 let presenceRef = null;
 let unlistenPlan = null;
 let unlistenPresence = null;
-let currentUser = null;
 
 init();
 
@@ -466,17 +463,9 @@ async function connectLive() {
   try {
     if (!firebaseApp) {
       firebaseApp = initializeApp(firebaseConfig);
-      auth = getAuth(firebaseApp);
       db = getDatabase(firebaseApp, firebaseConfig.databaseURL);
     }
 
-    onAuthStateChanged(auth, user => {
-      currentUser = user;
-      if (user && activeGroup) setupPresence();
-    });
-
-    const credential = await signInAnonymously(auth);
-    currentUser = credential.user;
     planRef = ref(db, `plans/${activeGroup}`);
 
     if (unlistenPlan) unlistenPlan();
@@ -506,14 +495,15 @@ async function connectLive() {
     console.error("Kunne ikke forbinde", error);
     const code = error?.code ? ` (${error.code})` : "";
     setFirebaseStatus("offline", `Kunne ikke forbinde${code}`);
-    alert("Kunne ikke forbinde til Firebase. Tjek firebase-config.js og om Anonymous Authentication + Realtime Database er slået til.");
+    alert("Kunne ikke forbinde til Firebase. Tjek firebase-config.js, databaseURL og at Realtime Database Rules fra v5 er publish’et.");
   }
 }
 
 function setupPresence() {
-  if (!db || !currentUser || !activeGroup) return;
+  if (!db || !activeGroup) return;
 
-  presenceRef = ref(db, `presence/${activeGroup}/${currentUser.uid}`);
+  const clientId = getClientId();
+  presenceRef = ref(db, `presence/${activeGroup}/${clientId}`);
   updatePresence();
   onDisconnect(presenceRef).remove();
 
@@ -530,7 +520,7 @@ function updatePresence() {
   set(presenceRef, {
     name: getPlayerName(),
     online: true,
-    updatedAt: serverTimestamp()
+    updatedAt: Date.now()
   }).catch(error => console.warn("Presence kunne ikke opdateres", error));
 }
 
@@ -572,7 +562,7 @@ async function pushStateNow() {
     boxes: toFirebaseBoxes(state.boxes),
     updatedAt: Date.now(),
     updatedBy: getPlayerName(),
-    version: 4
+    version: 5
   };
 
   try {
@@ -731,6 +721,14 @@ function fallbackCopy(text, successMessage) {
   document.execCommand("copy");
   textarea.remove();
   alert(successMessage);
+}
+
+function getClientId() {
+  if (!appSettings.clientId) {
+    appSettings.clientId = newId();
+    saveSettings();
+  }
+  return appSettings.clientId;
 }
 
 function newId() {

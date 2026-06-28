@@ -1,142 +1,59 @@
-# Rust Loot Organizer Live - v4 Fix
+# Rust Loot Organizer Live - v5
 
-Denne version retter live-start med tom loot-plan. Den skriver en usynlig placeholder til Firebase, hvis planen stadig har 0 bokse, så ældre/stramme Realtime Database rules ikke afviser første gemning.
+Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Database.
 
-Vigtigt: `database.rules.json` skal stadig kopieres/publishes i Firebase Console under Realtime Database -> Rules. Upload til GitHub ændrer ikke Firebase-reglerne automatisk.
+## Hvad er ændret i v5
 
-# Rust Loot Organizer Live
+v5 bruger **ikke Firebase Authentication**. Det gør den lettere for hele gruppen at bruge, fordi andre brugere ikke kan blive blokeret af Anonymous Auth, authorized domains eller login-indstillinger.
 
-En statisk GitHub Pages-side til at organisere Rust loot og storage boxes — med fælles live-data via Firebase Realtime Database.
-
-## Funktioner
-
-- Fælles gruppe-kode/link
-- Live sync mellem alle i gruppen
-- Opret storage boxes med navn, kategori, placering og noter
-- Liste over items pr. boks
-- Markér items som mangler/skaffet
-- Samlet “Mangler / To-do”-liste
-- Søgning og kategorifilter
-- Standard setup til våben, ammo, components, farm, byggeri, raid, medical, cards/fuses og elektronik/turrets
-- Eksport/import som JSON
-- Printvenlig loot-plan
-- Fallback til localStorage, hvis Firebase ikke er sat op endnu
+Sikkerheden er simpel: alle med jeres gruppe-link/kode kan se og ændre planen. Brug derfor en lang gruppe-kode og del kun linket med gruppen.
 
 ## Filer
 
-- `index.html` — siden
-- `style.css` — design
-- `app.js` — app + Firebase live sync
-- `firebase-config.js` — din Firebase config
-- `firebase-config.example.js` — eksempel på config
-- `database.rules.json` — anbefalede Realtime Database Rules
+- `index.html`
+- `style.css`
+- `app.js`
+- `firebase-config.js`
+- `firebase-config.example.js`
+- `database.rules.json`
+- `README.md`
 
-## 1. Upload til GitHub Pages
+## GitHub Pages
 
-1. Opret et nyt GitHub repository, fx `rust-loot-organizer`.
-2. Upload alle filerne i denne mappe.
-3. Gå til **Settings → Pages**.
-4. Vælg **Deploy from a branch**.
-5. Vælg branch `main` og folder `/root`.
-6. Gem.
+Upload/erstat alle filer i dit GitHub repository. Commit changes.
 
-Siden virker allerede lokalt i browseren, men live-deling kræver Firebase.
+Hvis GitHub Pages allerede er aktiveret, deployer den selv den nye version efter 1-3 minutter.
 
-## 2. Opret Firebase-projekt
+## Firebase Realtime Database Rules
 
-1. Gå til Firebase Console.
-2. Opret nyt project.
-3. Tilføj en Web App.
-4. Kopiér Firebase config-objektet.
-5. Åbn `firebase-config.js` i GitHub og indsæt værdierne.
+Upload til GitHub ændrer ikke Firebase-reglerne automatisk. Du skal selv kopiere reglerne fra `database.rules.json` ind her:
 
-Eksempel:
+Firebase Console → Realtime Database → Rules → indsæt regler → Publish
 
-```js
-window.RUST_LOOT_CONFIG = {
-  firebase: {
-    apiKey: "...",
-    authDomain: "dit-projekt.firebaseapp.com",
-    databaseURL: "https://dit-projekt-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "dit-projekt",
-    storageBucket: "dit-projekt.firebasestorage.app",
-    messagingSenderId: "...",
-    appId: "..."
-  },
-  defaultGroupCode: ""
-};
-```
+## Firebase config
 
-## 3. Slå Firebase Authentication til
+`firebase-config.js` er udfyldt til projektet:
 
-1. Gå til **Authentication → Sign-in method**.
-2. Aktivér **Anonymous**.
+- projectId: `rust-loot-organizer`
+- databaseURL: `https://rust-loot-organizer-default-rtdb.europe-west1.firebasedatabase.app`
 
-Appen bruger anonym login, så gruppen ikke behøver brugerkonti.
+Firebase web config er ikke et password. Realtime Database Rules styrer adgangen.
 
-## 4. Slå Realtime Database til
+## Brug
 
-1. Gå til **Realtime Database**.
-2. Opret database.
-3. Vælg region.
-4. Start gerne i locked mode og indsæt rules nedenfor bagefter.
-
-## 5. Indsæt Database Rules
-
-Gå til **Realtime Database → Rules** og indsæt dette:
-
-```json
-{
-  "rules": {
-    ".read": false,
-    ".write": false,
-    "plans": {
-      "$groupId": {
-        ".read": "auth != null && $groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)",
-        ".write": "auth != null && $groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)",
-        ".validate": "newData.hasChildren(['wipeName', 'boxes']) || !newData.exists()"
-      }
-    },
-    "presence": {
-      "$groupId": {
-        "$uid": {
-          ".read": "auth != null && $groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)",
-          ".write": "auth != null && auth.uid == $uid && $groupId.matches(/^[A-Za-z0-9_-]{6,64}$/)"
-        }
-      }
-    }
-  }
-}
-```
-
-## 6. Brug siden med gruppen
-
-1. Åbn GitHub Pages-linket.
+1. Åbn GitHub Pages-siden.
 2. Skriv dit navn.
-3. Tryk **Generér kode**.
-4. Tryk **Start live**.
-5. Tryk **Kopiér link** og send linket til gruppen.
+3. Generér eller indtast en gruppe-kode.
+4. Tryk `Start live`.
+5. Tryk `Kopiér link` og send linket til gruppen.
+6. Andre brugere åbner linket og trykker `Start live`, hvis den ikke forbinder automatisk.
 
-Alle der bruger samme link/gruppkode ser samme loot-plan live.
+## Fejlretning
 
-## Sikkerhed
+Hvis andre ikke kan forbinde:
 
-Firebase web config er ikke et password. Det vigtige er database rules.
+1. Tjek at GitHub Pages har deployet den nyeste version.
+2. Bed dem trykke Ctrl+F5 eller åbne linket i inkognito.
+3. Tjek at reglerne fra `database.rules.json` er published i Firebase.
+4. Tjek at alle bruger præcis samme gruppe-link eller samme gruppe-kode.
 
-Gruppe-koden fungerer som et delt hemmeligt rum. Brug derfor en genereret kode og del den kun med gruppen. Det er fint til en Rust-gruppe, men ikke til følsomme data.
-
-## Begrænsning
-
-Hvis to personer redigerer præcis samme boks samtidig, kan sidste gemning vinde. Til almindelig loot-sortering er det normalt fint.
-
-
-## FEJLFIX 2026-06-28
-
-Denne version indeholder en rettet `database.rules.json` uden den for stramme `.validate`-regel, som kunne forhindre første live-gemning, når planen endnu ikke havde bokse.
-
-Hvis siden viser **Kunne ikke gemme live**, skal reglerne i Firebase opdateres:
-
-1. Firebase Console → Realtime Database → Rules
-2. Indsæt indholdet fra `database.rules.json`
-3. Tryk **Publish**
-4. Genindlæs GitHub Pages-siden og tryk **Start live** igen
