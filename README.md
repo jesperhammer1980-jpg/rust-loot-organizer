@@ -1,4 +1,4 @@
-# Rust Loot Organizer Live - v0.7-test
+# Rust Loot Organizer Live - v0.8-test
 
 Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Database.
 
@@ -6,57 +6,64 @@ Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Data
 
 Alle nye ændringer skal laves og testes på en test-branch først. Denne version ligger på:
 
-`test/v0.7-minmax-guide-todo-links`
+`test/v0.8-storage-layout-generator`
 
 Merge ikke til `main`, før test-versionen er godkendt. GitHub Pages live-siden deployer stadig fra `main`.
 
-## Hvad er ændret i v0.7-test
+## Hvad er ændret i v0.8-test
 
-v0.7-test udvider mængdestyringen med Min/Max, guide og direkte navigation:
+v0.8-test tilføjer en Storage layout generator:
 
-- `Nuværende`, `Min`, `Max` og beregnet `Mangler til min`
-- status: `Under min`, `OK` eller `Over max`
-- hurtige knapper til `-1`, `+1` og `+ stack`
-- To-do listen viser kun items under `Min`
-- To-do items har `Hop til box`, som scroller til boksen og markerer den
-- To-do items har `Vis guide` / `Skjul guide`
-- guide viser `Findes lettest`, `Alternativer`, `Tip` og `Risiko`
-- `Egen note` pr. item syncer live og er med i eksport/import/print
-- gamle v0.6 items med `limit` migreres sikkert til `minAmount`
+- vælg hvilke storage bokse gruppen har
+- se total bokse, total slots, anbefalet minimum og manglende/ekstra slots
+- generér et realistisk Rust loot-layout ud fra kapacitet
+- genererede bokse er normale redigerbare storage boxes
+- genererede items bruger `Nuværende`, `Min`, `Max` og `Mangler til min`
+- storage settings syncer live via Firebase og følger med eksport/import
+- print viser en kompakt storage summary
 
-## Min/Max
+## Storage layout generator
 
-I en boks kan items skrives som:
+Gå til sektionen `Storage layout generator` og udfyld antal bokse:
 
-`Item navn | Kategori | Nuværende 5 | Min 20 | Max 100`
+- Stor boks: 48 slots
+- Lille boks: 18 slots
+- Locker: 36 slots
+- Køleskab: 42 slots
+- TC: 24 slots
+- Drop box: 12 slots
+- Vending machine: 30 slots
 
-Eksempel:
+Du kan også tilføje en custom box type med eget navn, antal og slots.
 
-`Pistol Bullets | Ammo | Nuværende 5 | Min 20 | Max 100`
+Tryk `Brug anbefalet setup` for et godt test-setup, eller indtast egne tal. Tryk derefter `Generér layout`.
 
-`Mangler til min` beregnes altid i appen som `max(minAmount - currentAmount, 0)` og gemmes ikke som separat felt.
+Hvis der allerede findes bokse i planen, spørger appen før layoutet erstattes.
 
-Hvis `Max` er `0` eller tom, bliver itemet ikke markeret som `Over max`.
+## Kapacitet
 
-## Missing item guide
+Slot-beregningen er vejledende og baseret på item-linjer, ikke fuld Rust stack-simulation.
 
-Guiden ligger som en statisk lookup-table i `app.js` (`itemGuides`). Tilføj flere entries ved at bruge item-navnet som nøgle:
+Appen bruger ca. 360 slots som anbefalet minimum. Hvis der er få slots, kombineres kategorier. Hvis der er ekstra slots, oprettes overflow/backup bokse.
 
-```js
-"item name": {
-  category: "Farm",
-  bestSource: "Findes lettest ...",
-  alternativeSources: "Alternativer ...",
-  tip: "Tip ...",
-  riskLevel: "Lav"
-}
-```
+## Genererede Min/Max værdier
 
-Ukendte items viser `Ingen guide endnu` og en note om at tilføje itemet til guide-listen i `app.js`.
+Generatoren bruger samme Min/Max-system som resten af appen. Eksempler:
+
+- Stone: Min 10000, Max 30000
+- Wood: Min 5000, Max 20000
+- Metal fragments: Min 5000, Max 15000
+- Sulfur: Min 2500, Max 10000
+- Pistol Bullets: Min 128, Max 512
+- Syringe: Min 20, Max 60
+- Scrap: Min 500, Max 3000
+- CCTV Camera: Min 2, Max 10
+
+`Mangler til min` beregnes altid i appen og gemmes ikke som separat felt.
 
 ## Firebase
 
-v0.7-test bruger stadig Firebase Realtime Database uden Firebase Authentication.
+v0.8-test bruger stadig Firebase Realtime Database uden Firebase Authentication.
 
 Når en gruppe-link åbnes:
 
@@ -82,8 +89,9 @@ Det beskytter eksisterende grupper mod at blive overskrevet af lokal browserdata
 2. Skriv dit navn.
 3. Generér eller indtast en gruppe-kode.
 4. Tryk `Start live`.
-5. Tilføj bokse og items.
-6. Tryk `Kopiér link` og send linket til gruppen.
+5. Udfyld Storage layout generator.
+6. Tryk `Generér layout`.
+7. Tryk `Kopiér link` og send linket til gruppen.
 
 ## Fejlretning
 

@@ -184,6 +184,112 @@ button, .import-label {
 .icon-btn { width: 38px; height: 38px; padding: 0; border-radius: 50%; font-size: 1.3rem; }
 .spacer { flex: 1; }
 
+.storage-generator { margin-bottom: 1rem; }
+.storage-content {
+  display: grid;
+  gap: .85rem;
+  padding: 0 1rem 1rem;
+}
+.storage-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.storage-toolbar h3 { margin: 0; font-size: .95rem; }
+.storage-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.storage-buttons button { min-height: 36px; padding: .45rem .7rem; font-size: .82rem; }
+.storage-table {
+  display: grid;
+  gap: .35rem;
+}
+.storage-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.4fr) minmax(70px, .55fr) minmax(100px, .75fr) minmax(90px, .7fr) minmax(70px, .55fr);
+  gap: .5rem;
+  align-items: center;
+  padding: .55rem;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 10px;
+  background: rgba(255,255,255,.035);
+}
+.storage-header {
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+  font-size: .72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.storage-name {
+  display: grid;
+  gap: .1rem;
+  min-width: 0;
+}
+.storage-name small {
+  color: var(--muted);
+  font-size: .72rem;
+}
+.storage-row input {
+  min-height: 36px;
+  border-radius: 8px;
+  padding: .45rem .55rem;
+}
+.storage-row input[readonly] {
+  color: var(--muted);
+}
+.storage-fixed {
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 800;
+}
+.storage-remove {
+  min-height: 34px;
+  padding: .35rem .5rem;
+  border-radius: 8px;
+  font-size: .78rem;
+}
+.storage-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: .6rem;
+}
+.storage-summary article {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: .7rem;
+  background: rgba(255,255,255,.035);
+}
+.storage-summary span {
+  display: block;
+  color: var(--muted);
+  font-size: .72rem;
+  margin-bottom: .2rem;
+}
+.storage-summary strong { font-size: 1.25rem; }
+.storage-summary .warning strong { color: var(--orange-2); }
+.storage-summary .ok strong { color: var(--green); }
+.storage-note {
+  color: var(--muted);
+  font-size: .82rem;
+  margin: 0;
+}
+.storage-generate-row {
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.layout-status {
+  color: var(--muted);
+  font-size: .84rem;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 330px 1fr;
@@ -454,6 +560,7 @@ button, .import-label {
   .wipe-card { grid-column: 1 / -1; }
   .layout { grid-template-columns: 1fr; }
   .checklist { position: static; }
+  .storage-summary { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 560px) {
@@ -468,15 +575,32 @@ button, .import-label {
   .item-actions { grid-template-columns: 1fr 1fr; }
   .todo-topline { flex-direction: column; }
   .todo-actions .todo-action { flex: 1 1 120px; }
+  .storage-toolbar { align-items: stretch; }
+  .storage-buttons, .storage-buttons button, .storage-generate-row button { width: 100%; }
+  .storage-row {
+    grid-template-columns: 1fr 1fr;
+    gap: .45rem;
+  }
+  .storage-header { display: none; }
+  .storage-name { grid-column: 1 / -1; }
+  .storage-row > strong { justify-self: start; }
+  .storage-fixed, .storage-remove { justify-self: stretch; }
+  .storage-summary { grid-template-columns: 1fr 1fr; }
 }
 
 @media print {
   body { background: white; color: black; }
-  .app-header, .controls, .templates, .box-actions, .dialog, .header-actions, .live-panel { display: none !important; }
+  .app-header, .controls, .templates, .box-actions, .dialog, .header-actions, .live-panel, .storage-buttons, .storage-generate-row button { display: none !important; }
   main { padding: 0; }
   .panel { box-shadow: none; border: 1px solid #bbb; background: white; color: black; break-inside: avoid; }
   .layout { grid-template-columns: 1fr; }
   .box-grid { grid-template-columns: repeat(2, 1fr); }
+  .storage-content { padding: .5rem; gap: .4rem; }
+  .storage-row { grid-template-columns: 2fr 1fr 1fr 1fr; border-color: #bbb; background: white; color: black; break-inside: avoid; }
+  .storage-row > :last-child { display: none; }
+  .storage-summary { grid-template-columns: repeat(4, 1fr); }
+  .storage-summary article { border-color: #bbb; background: white; }
+  .storage-note, .layout-status, .storage-name small, .storage-summary span { color: black; }
   .category-pill { color: black; border: 1px solid #999; background: white; }
   .item-row { border: 1px solid #bbb; background: white; break-inside: avoid; }
   .item-row.is-under-min, .item-row.is-over-max, .item-row.is-ok { background: white; border-color: #777; }

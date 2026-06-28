@@ -12,7 +12,7 @@
     <div>
       <p class="eyebrow">Rust helper · live group planner</p>
       <h1>Loot Organizer</h1>
-      <p id="versionLabel" class="version-label">Rust Loot Organizer — v0.7-test</p>
+      <p id="versionLabel" class="version-label">Rust Loot Organizer — v0.8-test</p>
       <p class="subtitle">Fælles loot-plan for gruppen. Notér hvad der skal ligge i hver storage box, følg mængder og se ændringer live.</p>
     </div>
     <div class="header-actions">
@@ -88,6 +88,32 @@
       </div>
       <button id="btnAddBox" class="primary">+ Ny boks</button>
       <button id="btnTemplates" class="secondary">Indsæt standard setup</button>
+    </section>
+
+    <section class="panel storage-generator">
+      <div class="panel-heading">
+        <div>
+          <h2>Storage layout generator</h2>
+          <p>Vælg hvilke bokse I har, og generér et realistisk loot-layout med Min/Max mål.</p>
+        </div>
+      </div>
+      <div class="storage-content">
+        <div class="storage-toolbar">
+          <h3>Hvilke bokse har I?</h3>
+          <div class="storage-buttons">
+            <button id="btnRecommendedStorage" class="secondary" type="button">Brug anbefalet setup</button>
+            <button id="btnAddStorageType" class="ghost" type="button">+ Custom box type</button>
+            <button id="btnClearStorage" class="ghost" type="button">Ryd layout</button>
+          </div>
+        </div>
+        <div class="storage-table" id="storageTable"></div>
+        <div class="storage-summary" id="storageSummary"></div>
+        <p class="storage-note">Slot-beregning er vejledende og baseret på item-linjer, ikke fuld Rust stack-simulation.</p>
+        <div class="storage-generate-row">
+          <button id="btnGenerateLayout" class="primary" type="button">Generér layout</button>
+          <span id="layoutStatus" class="layout-status">Ingen layout genereret endnu.</span>
+        </div>
+      </div>
     </section>
 
     <section id="templatesPanel" class="panel templates hidden">
