@@ -10,16 +10,23 @@
 <body>
   <header class="app-header">
     <div>
-      <p class="eyebrow">Rust helper · live group planner</p>
+      <p class="eyebrow" data-i18n="eyebrow">Rust helper · live group planner</p>
       <h1>Loot Organizer</h1>
-      <p id="versionLabel" class="version-label">Rust Loot Organizer — v0.9-test</p>
-      <p class="subtitle">Fælles loot-plan for gruppen. Notér hvad der skal ligge i hver storage box, følg mængder og se ændringer live.</p>
+      <p id="versionLabel" class="version-label">Rust Loot Organizer — v1.0-test</p>
+      <p class="subtitle" data-i18n="subtitle">Fælles loot-plan for gruppen. Notér hvad der skal ligge i hver storage box, følg mængder og se ændringer live.</p>
     </div>
     <div class="header-actions">
-      <button id="btnPrint" class="ghost">Print plan</button>
-      <button id="btnExport" class="ghost">Eksportér</button>
+      <label class="language-switcher">
+        <span data-i18n="language">Sprog</span>
+        <select id="languageSelect" aria-label="Sprog">
+          <option value="da">Dansk</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+      <button id="btnPrint" class="ghost" data-i18n="print">Print</button>
+      <button id="btnExport" class="ghost" data-i18n="export">Eksportér</button>
       <label class="import-label">
-        Importér
+        <span data-i18n="import">Importér</span>
         <input id="importFile" type="file" accept="application/json" hidden />
       </label>
     </div>
@@ -29,24 +36,24 @@
     <section class="panel live-panel">
       <div class="live-status-row">
         <div>
-          <h2>Live gruppe</h2>
-          <p id="liveHelp">Indsæt Firebase config i <code>firebase-config.js</code>, vælg gruppe-kode og del link/kode med resten af holdet.</p>
+          <h2 data-i18n="liveGroup">Live gruppe</h2>
+          <p id="liveHelp" data-i18n-html="liveHelp">Indsæt Firebase config i <code>firebase-config.js</code>, vælg gruppe-kode og del link/kode med resten af holdet.</p>
         </div>
         <span id="liveStatus" class="status-badge offline">Offline/local</span>
       </div>
 
       <div class="live-controls">
         <div class="field">
-          <label for="playerName">Dit navn</label>
-          <input id="playerName" type="text" placeholder="Fx Jesper" autocomplete="nickname" />
+          <label for="playerName" data-i18n="playerName">Dit navn</label>
+          <input id="playerName" type="text" placeholder="Fx Jesper" data-i18n-placeholder="playerNamePlaceholder" autocomplete="nickname" />
         </div>
         <div class="field grow">
-          <label for="groupCode">Gruppe-kode</label>
-          <input id="groupCode" type="text" placeholder="Fx lynaes-duo-2026 eller generér en sikker kode" />
+          <label for="groupCode" data-i18n="groupCode">Gruppe-kode</label>
+          <input id="groupCode" type="text" placeholder="Fx lynaes-duo-2026 eller generér en sikker kode" data-i18n-placeholder="groupCodePlaceholder" />
         </div>
-        <button id="btnGenerateCode" class="secondary" type="button">Generér kode</button>
-        <button id="btnJoinLive" class="primary" type="button">Start live</button>
-        <button id="btnCopyShare" class="ghost" type="button">Kopiér link</button>
+        <button id="btnGenerateCode" class="secondary" type="button" data-i18n="generateCode">Generér kode</button>
+        <button id="btnJoinLive" class="primary" type="button" data-i18n="startLive">Start live</button>
+        <button id="btnCopyShare" class="ghost" type="button" data-i18n="copyLink">Kopiér link</button>
       </div>
 
       <div class="live-meta">
@@ -58,94 +65,94 @@
 
     <section class="dashboard">
       <article class="panel stats-card">
-        <span class="label">Bokse</span>
+        <span class="label" data-i18n="boxes">Bokse</span>
         <strong id="statBoxes">0</strong>
       </article>
       <article class="panel stats-card">
-        <span class="label">Items</span>
+        <span class="label" data-i18n="items">Items</span>
         <strong id="statItems">0</strong>
       </article>
       <article class="panel stats-card warning">
-        <span class="label">Mangler</span>
+        <span class="label" data-i18n="missing">Mangler</span>
         <strong id="statMissing">0</strong>
       </article>
       <article class="panel wipe-card">
-        <label for="wipeName">Wipe / server</label>
-        <input id="wipeName" type="text" placeholder="Fx EU Monthly / Duo wipe" />
+        <label for="wipeName" data-i18n="wipeServer">Wipe / server</label>
+        <input id="wipeName" type="text" placeholder="Fx EU Monthly / Duo wipe" data-i18n-placeholder="wipeServerPlaceholder" />
       </article>
     </section>
 
     <section class="controls panel">
       <div class="field grow">
-        <label for="searchInput">Søg i bokse/items</label>
-        <input id="searchInput" type="search" placeholder="Søg fx scrap, ammo, meds..." />
+        <label for="searchInput" data-i18n="searchBoxes">Søg i bokse/items</label>
+        <input id="searchInput" type="search" placeholder="Søg fx scrap, ammo, meds..." data-i18n-placeholder="searchPlaceholder" />
       </div>
       <div class="field">
-        <label for="filterCategory">Kategori</label>
+        <label for="filterCategory" data-i18n="category">Kategori</label>
         <select id="filterCategory">
           <option value="all">Alle kategorier</option>
         </select>
       </div>
-      <button id="btnAddBox" class="primary">Tilføj boks</button>
-      <button id="btnTemplates" class="secondary">Indsæt standard setup</button>
+      <button id="btnAddBox" class="primary" data-i18n="addBox">Tilføj boks</button>
+      <button id="btnTemplates" class="secondary" data-i18n="insertDefaultSetup">Indsæt standard setup</button>
     </section>
 
     <section class="panel manual-setup">
       <div class="panel-heading">
         <div>
-          <h2>Manuel boksopsætning</h2>
-          <p>Manuel opsætning er normal workflow: opret bokse, vælg box type og placer items præcis hvor I vil have dem.</p>
+          <h2 data-i18n="manualSetup">Manuel boksopsætning</h2>
+          <p data-i18n="manualSetupDesc">Manuel opsætning er normal workflow: opret bokse, vælg box type og placer items præcis hvor I vil have dem.</p>
         </div>
       </div>
       <div class="manual-content">
         <div class="manual-form">
           <div class="field">
-            <label for="manualBoxType">Box type</label>
+            <label for="manualBoxType" data-i18n="boxType">Box type</label>
             <select id="manualBoxType"></select>
           </div>
           <div class="field">
-            <label for="manualBoxCount">Antal bokse</label>
+            <label for="manualBoxCount" data-i18n="boxCount">Antal bokse</label>
             <input id="manualBoxCount" type="number" min="1" step="1" inputmode="numeric" value="1" />
           </div>
           <div class="field grow">
-            <label for="manualBoxPrefix">Box navn</label>
-            <input id="manualBoxPrefix" type="text" placeholder="Fx Loot" />
+            <label for="manualBoxPrefix" data-i18n="boxName">Box navn</label>
+            <input id="manualBoxPrefix" type="text" placeholder="Fx Loot" data-i18n-placeholder="boxNamePlaceholder" />
           </div>
           <div class="field manual-custom-field">
-            <label for="manualCustomType">Custom navn</label>
-            <input id="manualCustomType" type="text" placeholder="Fx Ammo shelf" />
+            <label for="manualCustomType" data-i18n="customName">Custom navn</label>
+            <input id="manualCustomType" type="text" placeholder="Fx Ammo shelf" data-i18n-placeholder="customNamePlaceholder" />
           </div>
           <div class="field manual-custom-field">
-            <label for="manualCustomSlots">Slots</label>
+            <label for="manualCustomSlots" data-i18n="slots">Slots</label>
             <input id="manualCustomSlots" type="number" min="1" step="1" inputmode="numeric" value="24" />
           </div>
-          <button id="btnCreateManualBoxes" class="primary" type="button">Opret bokse</button>
+          <button id="btnCreateManualBoxes" class="primary" type="button" data-i18n="createBoxes">Opret bokse</button>
         </div>
-        <p class="storage-note">Slot-beregning er vejledende og baseret på item-linjer, ikke fuld Rust stack-simulation.</p>
+        <p class="storage-note" data-i18n="slotNote">Slot-beregning er vejledende og baseret på item-linjer, ikke fuld Rust stack-simulation.</p>
       </div>
     </section>
 
     <section class="panel storage-generator">
       <div class="panel-heading">
         <div>
-          <h2>Storage layout generator</h2>
-          <p>Valgfri helper: brug den når I vil starte hurtigt. Genererede bokse kan redigeres manuelt bagefter.</p>
+          <h2 data-i18n="storageGenerator">Storage layout generator</h2>
+          <p data-i18n="storageGeneratorDesc">Valgfri helper: brug den når I vil starte hurtigt. Genererede bokse kan redigeres manuelt bagefter.</p>
         </div>
       </div>
       <div class="storage-content">
         <div class="storage-toolbar">
-          <h3>Generér layout automatisk</h3>
+          <h3 data-i18n="generateLayoutAuto">Generér layout automatisk</h3>
           <div class="storage-buttons">
-            <button id="btnRecommendedStorage" class="secondary" type="button">Brug anbefalet setup</button>
-            <button id="btnAddStorageType" class="ghost" type="button">+ Custom box type</button>
-            <button id="btnClearStorage" class="ghost" type="button">Ryd layout</button>
+            <button id="btnRecommendedStorage" class="secondary" type="button" data-i18n="recommendedSetup">Brug anbefalet setup</button>
+            <button id="btnAddStorageType" class="ghost" type="button" data-i18n="addCustomBoxType">+ Custom box type</button>
+            <button id="btnClearStorage" class="ghost" type="button" data-i18n="clearLayout">Ryd layout</button>
           </div>
         </div>
         <div class="storage-table" id="storageTable"></div>
         <div class="storage-summary" id="storageSummary"></div>
-        <p class="storage-note">Slot-beregning er vejledende og baseret på item-linjer, ikke fuld Rust stack-simulation.</p>
+        <p class="storage-note" data-i18n="slotNote">Slot-beregning er vejledende og baseret på item-linjer, ikke fuld Rust stack-simulation.</p>
         <div class="storage-generate-row">
-          <button id="btnGenerateLayout" class="primary" type="button">Generér layout automatisk</button>
+          <button id="btnGenerateLayout" class="primary" type="button" data-i18n="generateLayout">Generér layout</button>
           <span id="layoutStatus" class="layout-status">Ingen layout genereret endnu.</span>
         </div>
       </div>
@@ -154,10 +161,10 @@
     <section id="templatesPanel" class="panel templates hidden">
       <div class="panel-heading">
         <div>
-          <h2>Standard setup</h2>
-          <p>Tilføjer et godt begynder/duo setup. Du kan rette alt bagefter.</p>
+          <h2 data-i18n="defaultSetup">Standard setup</h2>
+          <p data-i18n="defaultSetupDesc">Tilføjer et godt begynder/duo setup. Du kan rette alt bagefter.</p>
         </div>
-        <button id="btnCloseTemplates" class="icon-btn" aria-label="Luk">×</button>
+        <button id="btnCloseTemplates" class="icon-btn" aria-label="Luk" data-i18n-aria-label="close">×</button>
       </div>
       <div class="template-grid" id="templateGrid"></div>
     </section>
@@ -166,8 +173,8 @@
       <aside class="panel checklist">
         <div class="panel-heading">
           <div>
-            <h2>Mangler / To-do</h2>
-            <p>Items under min samles her med guide og hop til box.</p>
+            <h2 data-i18n="todoMissing">Mangler / To-do</h2>
+            <p data-i18n="todoMissingDesc">Items under min samles her med guide og hop til box.</p>
           </div>
         </div>
         <ul id="missingList" class="missing-list"></ul>
@@ -176,8 +183,8 @@
       <section>
         <div class="panel-heading boxes-heading">
           <div>
-            <h2>Storage boxes</h2>
-            <p>Notér præcist hvad der hører til i hver boks og hvor meget I mangler.</p>
+            <h2 data-i18n="storageBoxes">Storage boxes</h2>
+            <p data-i18n="storageBoxesDesc">Notér præcist hvad der hører til i hver boks og hvor meget I mangler.</p>
           </div>
         </div>
         <div id="boxGrid" class="box-grid"></div>
@@ -190,52 +197,52 @@
       <div class="panel-heading">
         <div>
           <h2 id="dialogTitle">Ny boks</h2>
-          <p>Giv boksen et tydeligt navn og en kategori.</p>
+          <p data-i18n="dialogDesc">Giv boksen et tydeligt navn og en kategori.</p>
         </div>
-        <button class="icon-btn" value="cancel" aria-label="Luk">×</button>
+        <button class="icon-btn" value="cancel" aria-label="Luk" data-i18n-aria-label="close">×</button>
       </div>
 
       <input type="hidden" id="boxId" />
       <div class="form-grid">
         <div class="field">
-          <label for="boxName">Boksnavn</label>
-          <input id="boxName" type="text" required placeholder="Fx Ammo / Våben / Farm" />
+          <label for="boxName" data-i18n="boxName">Box navn</label>
+          <input id="boxName" type="text" required placeholder="Fx Ammo / Våben / Farm" data-i18n-placeholder="boxDialogNamePlaceholder" />
         </div>
         <div class="field">
-          <label for="boxCategory">Kategori</label>
+          <label for="boxCategory" data-i18n="category">Kategori</label>
           <select id="boxCategory"></select>
         </div>
         <div class="field">
-          <label for="boxType">Box type</label>
+          <label for="boxType" data-i18n="boxType">Box type</label>
           <select id="boxType"></select>
         </div>
         <div class="field">
-          <label for="boxSlots">Slots</label>
+          <label for="boxSlots" data-i18n="slots">Slots</label>
           <input id="boxSlots" type="number" min="1" step="1" inputmode="numeric" value="48" />
         </div>
         <div class="field full box-custom-type-field">
-          <label for="boxCustomType">Custom box type</label>
-          <input id="boxCustomType" type="text" placeholder="Fx Ammo shelf" />
+          <label for="boxCustomType" data-i18n="customBoxType">Custom box type</label>
+          <input id="boxCustomType" type="text" placeholder="Fx Ammo shelf" data-i18n-placeholder="customNamePlaceholder" />
         </div>
         <div class="field full">
-          <label for="boxLocation">Placering i basen</label>
-          <input id="boxLocation" type="text" placeholder="Fx loot room venstre side, øverste boks" />
+          <label for="boxLocation" data-i18n="baseLocation">Placering i basen</label>
+          <input id="boxLocation" type="text" placeholder="Fx loot room venstre side, øverste boks" data-i18n-placeholder="baseLocationPlaceholder" />
         </div>
         <div class="field full">
-          <label for="boxItems">Items — navn | kategori | Nuværende | Min | Max</label>
-          <textarea id="boxItems" rows="8" placeholder="Pistol Bullets | Ammo | Nuværende 5 | Min 20 | Max 100&#10;Metal Fragments | Farm | Nuværende 0 | Min 5000 | Max 15000&#10;Syringe | Medical/Food | Nuværende 0 | Min 20 | Max 60"></textarea>
+          <label for="boxItems" data-i18n="itemsTextLabel">Items — navn | kategori | Nuværende | Min | Max</label>
+          <textarea id="boxItems" rows="8" data-i18n-placeholder="itemsTextPlaceholder" placeholder="Pistol Bullet | Ammo | Nuværende 5 | Min 20 | Max 100&#10;Metal Fragments | Farm | Nuværende 0 | Min 5000 | Max 15000&#10;Medical Syringe | Medical/Food | Nuværende 0 | Min 20 | Max 60"></textarea>
         </div>
         <div class="field full">
-          <label for="boxNotes">Noter</label>
-          <textarea id="boxNotes" rows="3" placeholder="Fx: Gem altid 2 fuses og blå kort her"></textarea>
+          <label for="boxNotes" data-i18n="notes">Noter</label>
+          <textarea id="boxNotes" rows="3" placeholder="Fx: Gem altid 2 fuses og blå kort her" data-i18n-placeholder="notesPlaceholder"></textarea>
         </div>
       </div>
 
       <div class="dialog-actions">
-        <button type="button" id="btnDeleteBox" class="danger hidden">Slet boks</button>
+        <button type="button" id="btnDeleteBox" class="danger hidden" data-i18n="deleteBox">Slet boks</button>
         <span class="spacer"></span>
-        <button value="cancel" class="ghost">Annullér</button>
-        <button id="btnSaveBox" value="default" class="primary">Gem</button>
+        <button value="cancel" class="ghost" data-i18n="cancel">Annullér</button>
+        <button id="btnSaveBox" value="default" class="primary" data-i18n="save">Gem</button>
       </div>
     </form>
   </dialog>
