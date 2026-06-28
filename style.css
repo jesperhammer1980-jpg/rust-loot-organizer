@@ -184,6 +184,20 @@ button, .import-label {
 .icon-btn { width: 38px; height: 38px; padding: 0; border-radius: 50%; font-size: 1.3rem; }
 .spacer { flex: 1; }
 
+.manual-setup { margin-bottom: 1rem; }
+.manual-content {
+  display: grid;
+  gap: .75rem;
+  padding: 0 1rem 1rem;
+}
+.manual-form {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(110px, .55fr) minmax(180px, 1.2fr) minmax(160px, .9fr) minmax(110px, .55fr) auto;
+  gap: .75rem;
+  align-items: end;
+}
+.manual-form button { min-height: 44px; white-space: nowrap; }
+
 .storage-generator { margin-bottom: 1rem; }
 .storage-content {
   display: grid;
@@ -410,6 +424,27 @@ button, .import-label {
   white-space: nowrap;
 }
 .location { color: var(--muted); font-size: .82rem; }
+.box-capacity {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  align-items: center;
+  width: fit-content;
+  margin-top: .35rem;
+  color: #c9ffad;
+  border: 1px solid rgba(130,179,102,.25);
+  border-radius: 999px;
+  padding: .18rem .5rem;
+  background: rgba(130,179,102,.08);
+  font-size: .72rem;
+  font-weight: 800;
+}
+.box-capacity.over-capacity {
+  color: #ffc0b8;
+  border-color: rgba(201,95,80,.4);
+  background: rgba(201,95,80,.1);
+}
+.box-capacity strong { font-size: .68rem; }
 .item-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .6rem; }
 .item-row {
   display: grid;
@@ -470,17 +505,17 @@ button, .import-label {
 .missing-badge.warning strong { color: var(--orange-2); }
 .missing-badge.ok strong { color: var(--green); }
 .missing-badge.danger strong { color: #ffc0b8; }
-.item-note {
+.item-note, .item-category-edit {
   display: grid;
   gap: .25rem;
 }
-.item-note span {
+.item-note span, .item-category-edit span, .move-target span, .manual-add-item label span {
   color: var(--muted);
   font-size: .68rem;
   font-weight: 800;
   text-transform: uppercase;
 }
-.item-note input {
+.item-note input, .item-category-edit select, .move-target select, .manual-add-item input, .manual-add-item select {
   min-height: 34px;
   border-radius: 8px;
   padding: .45rem .55rem;
@@ -496,6 +531,40 @@ button, .import-label {
   padding: .35rem .45rem;
   border-radius: 8px;
   font-size: .78rem;
+  white-space: nowrap;
+}
+.move-target {
+  display: grid;
+  gap: .2rem;
+  grid-column: span 2;
+}
+.manual-add-item {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.1fr) minmax(130px, .8fr) repeat(3, minmax(82px, .55fr)) minmax(140px, 1fr) auto;
+  gap: .45rem;
+  align-items: end;
+  padding: .7rem;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 12px;
+  background: rgba(255,255,255,.025);
+}
+.manual-add-heading {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+  color: var(--text);
+}
+.manual-add-heading small { color: var(--muted); }
+.manual-add-item label {
+  display: grid;
+  gap: .22rem;
+  min-width: 0;
+}
+.manual-add-item button {
+  min-height: 34px;
+  padding: .35rem .65rem;
+  border-radius: 8px;
   white-space: nowrap;
 }
 .empty-item {
@@ -560,6 +629,11 @@ button, .import-label {
   .wipe-card { grid-column: 1 / -1; }
   .layout { grid-template-columns: 1fr; }
   .checklist { position: static; }
+  .manual-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .manual-form button { width: 100%; }
+  .manual-add-item { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .manual-add-heading { display: grid; }
+  .manual-add-item button { width: 100%; }
   .storage-summary { grid-template-columns: repeat(2, 1fr); }
 }
 
@@ -573,8 +647,11 @@ button, .import-label {
   .item-quantity-grid { grid-template-columns: 1fr 1fr; }
   .missing-badge { grid-column: 1 / -1; min-height: 48px; }
   .item-actions { grid-template-columns: 1fr 1fr; }
+  .move-target { grid-column: 1 / -1; }
   .todo-topline { flex-direction: column; }
   .todo-actions .todo-action { flex: 1 1 120px; }
+  .manual-form, .manual-add-item { grid-template-columns: 1fr; }
+  .manual-form button, .manual-add-item button { width: 100%; }
   .storage-toolbar { align-items: stretch; }
   .storage-buttons, .storage-buttons button, .storage-generate-row button { width: 100%; }
   .storage-row {
@@ -590,7 +667,7 @@ button, .import-label {
 
 @media print {
   body { background: white; color: black; }
-  .app-header, .controls, .templates, .box-actions, .dialog, .header-actions, .live-panel, .storage-buttons, .storage-generate-row button { display: none !important; }
+  .app-header, .controls, .templates, .box-actions, .dialog, .header-actions, .live-panel, .manual-setup, .manual-add-item, .storage-buttons, .storage-generate-row button { display: none !important; }
   main { padding: 0; }
   .panel { box-shadow: none; border: 1px solid #bbb; background: white; color: black; break-inside: avoid; }
   .layout { grid-template-columns: 1fr; }
@@ -601,13 +678,14 @@ button, .import-label {
   .storage-summary { grid-template-columns: repeat(4, 1fr); }
   .storage-summary article { border-color: #bbb; background: white; }
   .storage-note, .layout-status, .storage-name small, .storage-summary span { color: black; }
+  .box-capacity, .box-capacity.over-capacity { color: black; background: white; border-color: #999; }
   .category-pill { color: black; border: 1px solid #999; background: white; }
   .item-row { border: 1px solid #bbb; background: white; break-inside: avoid; }
   .item-row.is-under-min, .item-row.is-over-max, .item-row.is-ok { background: white; border-color: #777; }
   .item-category { color: black; background: white; border: 1px solid #999; }
   .item-quantity-grid { grid-template-columns: repeat(4, 1fr); }
   .item-quantity-grid input { border: 0; color: black; background: white; padding: 0; min-height: auto; }
-  .item-note input { border: 0; color: black; background: white; padding: 0; min-height: auto; }
+  .item-note input, .item-category-edit select { border: 0; color: black; background: white; padding: 0; min-height: auto; }
   .missing-badge { border: 1px solid #999; background: white; color: black; min-height: auto; }
   .missing-badge.warning strong, .missing-badge.ok strong, .missing-badge.danger strong { color: black; }
   .item-guide-line { color: black; }

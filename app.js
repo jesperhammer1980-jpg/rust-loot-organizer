@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/fireba
 import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
 const LOCAL_SETTINGS_KEY = "rust-loot-live-settings-v2";
-const APP_VERSION = "v0.8-test";
+const APP_VERSION = "v0.9-test";
 const LAYOUT_PRESET_VERSION = "v0.8";
 const RECOMMENDED_MIN_SLOTS = 360;
 
@@ -79,8 +79,81 @@ const defaultItemRanges = new Map(Object.entries({
   "blue card": { minAmount: 2, maxAmount: 10 },
   "blue keycard": { minAmount: 2, maxAmount: 10 },
   "red card": { minAmount: 1, maxAmount: 5 },
-  "red keycard": { minAmount: 1, maxAmount: 5 }
+  "red keycard": { minAmount: 1, maxAmount: 5 },
+  "leather": { minAmount: 200, maxAmount: 1000 },
+  "bow": { minAmount: 1, maxAmount: 4 },
+  "crossbow": { minAmount: 1, maxAmount: 4 },
+  "revolver": { minAmount: 1, maxAmount: 4 },
+  "semi-auto rifle": { minAmount: 1, maxAmount: 4 },
+  "python": { minAmount: 1, maxAmount: 3 },
+  "custom smg": { minAmount: 1, maxAmount: 4 },
+  "thompson": { minAmount: 1, maxAmount: 4 },
+  "hazmat suit": { minAmount: 2, maxAmount: 8 },
+  "metal facemask": { minAmount: 2, maxAmount: 8 },
+  "metal chestplate": { minAmount: 2, maxAmount: 8 },
+  "pickaxe": { minAmount: 2, maxAmount: 8 },
+  "hatchet": { minAmount: 2, maxAmount: 8 },
+  "jackhammer": { minAmount: 1, maxAmount: 4 },
+  "satchel charge": { minAmount: 4, maxAmount: 20 },
+  "explosive ammo": { minAmount: 64, maxAmount: 256 },
+  "rocket": { minAmount: 2, maxAmount: 12 },
+  "c4": { minAmount: 1, maxAmount: 6 }
 }).map(([name, range]) => [normalizeItemKey(name), range]));
+
+const commonItemCatalog = [
+  { name: "Stone", category: "Farm" },
+  { name: "Wood", category: "Farm" },
+  { name: "Metal ore", category: "Farm" },
+  { name: "Metal fragments", category: "Farm" },
+  { name: "Sulfur ore", category: "Farm" },
+  { name: "Sulfur", category: "Raid" },
+  { name: "Charcoal", category: "Raid" },
+  { name: "Gunpowder", category: "Raid" },
+  { name: "Scrap", category: "Components" },
+  { name: "High Quality Metal", category: "Components" },
+  { name: "Cloth", category: "Medical/Food" },
+  { name: "Leather", category: "Tøj/Armor" },
+  { name: "Animal Fat", category: "Medical/Food" },
+  { name: "Low Grade Fuel", category: "Medical/Food" },
+  { name: "Pistol Bullets", category: "Ammo" },
+  { name: "5.56 Ammo", category: "Ammo" },
+  { name: "Shotgun Shells", category: "Ammo" },
+  { name: "Arrows", category: "Ammo" },
+  { name: "Syringe", category: "Medical/Food" },
+  { name: "Bandage", category: "Medical/Food" },
+  { name: "Medkit", category: "Medical/Food" },
+  { name: "Gears", category: "Components" },
+  { name: "Metal Pipe", category: "Components" },
+  { name: "Road Signs", category: "Components" },
+  { name: "Sheet Metal", category: "Components" },
+  { name: "Springs", category: "Components" },
+  { name: "Tech Trash", category: "Components" },
+  { name: "CCTV Camera", category: "Elektronik" },
+  { name: "Targeting Computer", category: "Elektronik" },
+  { name: "Fuse", category: "Cards/Fuses" },
+  { name: "Green Card", category: "Cards/Fuses" },
+  { name: "Blue Card", category: "Cards/Fuses" },
+  { name: "Red Card", category: "Cards/Fuses" },
+  { name: "Bow", category: "Våben" },
+  { name: "Crossbow", category: "Våben" },
+  { name: "Revolver", category: "Våben" },
+  { name: "Semi-Auto Rifle", category: "Våben" },
+  { name: "Python", category: "Våben" },
+  { name: "Custom SMG", category: "Våben" },
+  { name: "Thompson", category: "Våben" },
+  { name: "Hazmat Suit", category: "Tøj/Armor" },
+  { name: "Metal Facemask", category: "Tøj/Armor" },
+  { name: "Metal Chestplate", category: "Tøj/Armor" },
+  { name: "Pickaxe", category: "Farm" },
+  { name: "Hatchet", category: "Farm" },
+  { name: "Jackhammer", category: "Farm" },
+  { name: "Satchel Charge", category: "Raid" },
+  { name: "Explosive Ammo", category: "Raid" },
+  { name: "Rocket", category: "Raid" },
+  { name: "C4", category: "Raid" }
+];
+
+const itemCatalog = new Map(commonItemCatalog.map(item => [normalizeItemKey(item.name), item]));
 
 const stackSizes = new Map(Object.entries({
   "stone": 1000,
@@ -376,6 +449,12 @@ const els = {
   statMissing: document.getElementById("statMissing"),
   searchInput: document.getElementById("searchInput"),
   filterCategory: document.getElementById("filterCategory"),
+  manualBoxType: document.getElementById("manualBoxType"),
+  manualBoxCount: document.getElementById("manualBoxCount"),
+  manualBoxPrefix: document.getElementById("manualBoxPrefix"),
+  manualCustomType: document.getElementById("manualCustomType"),
+  manualCustomSlots: document.getElementById("manualCustomSlots"),
+  btnCreateManualBoxes: document.getElementById("btnCreateManualBoxes"),
   storageTable: document.getElementById("storageTable"),
   storageSummary: document.getElementById("storageSummary"),
   layoutStatus: document.getElementById("layoutStatus"),
@@ -387,6 +466,9 @@ const els = {
   boxId: document.getElementById("boxId"),
   boxName: document.getElementById("boxName"),
   boxCategory: document.getElementById("boxCategory"),
+  boxType: document.getElementById("boxType"),
+  boxCustomType: document.getElementById("boxCustomType"),
+  boxSlots: document.getElementById("boxSlots"),
   boxLocation: document.getElementById("boxLocation"),
   boxItems: document.getElementById("boxItems"),
   boxNotes: document.getElementById("boxNotes"),
@@ -402,7 +484,8 @@ const els = {
   templateGrid: document.getElementById("templateGrid"),
   btnExport: document.getElementById("btnExport"),
   importFile: document.getElementById("importFile"),
-  btnPrint: document.getElementById("btnPrint")
+  btnPrint: document.getElementById("btnPrint"),
+  itemOptions: document.getElementById("itemOptions")
 };
 
 const appSettings = loadSettings();
@@ -416,6 +499,7 @@ let currentSearch = "";
 let currentCategory = "all";
 let applyingRemote = false;
 let saveTimer = null;
+let lastLocalChangeAt = 0;
 
 let firebaseApp = null;
 let db = null;
@@ -429,6 +513,8 @@ init();
 
 function init() {
   fillCategorySelects();
+  fillBoxTypeControls();
+  fillItemDatalist();
   renderTemplates();
   bindEvents();
 
@@ -487,6 +573,9 @@ function bindEvents() {
   });
 
   els.btnAddBox.addEventListener("click", () => openBoxDialog());
+  els.manualBoxType.addEventListener("change", syncManualCustomFields);
+  els.btnCreateManualBoxes.addEventListener("click", createManualBoxes);
+  els.boxType.addEventListener("change", () => syncDialogBoxTypeFields(true));
   els.btnRecommendedStorage.addEventListener("click", applyRecommendedStorage);
   els.btnAddStorageType.addEventListener("click", addCustomStorageType);
   els.btnClearStorage.addEventListener("click", clearStorageLayout);
@@ -500,6 +589,23 @@ function bindEvents() {
   els.boxForm.addEventListener("submit", event => {
     event.preventDefault();
     saveBoxFromDialog();
+  });
+  els.boxGrid.addEventListener("submit", event => {
+    const form = event.target.closest(".manual-add-item");
+    if (!form) return;
+    event.preventDefault();
+    addManualItem(form.dataset.addBoxId);
+  });
+  els.boxGrid.addEventListener("click", event => {
+    const moveButton = event.target.closest("[data-move-item]");
+    if (moveButton) {
+      moveItemToBox(moveButton.dataset.boxId, moveButton.dataset.itemId);
+      return;
+    }
+    const removeButton = event.target.closest("[data-remove-item]");
+    if (removeButton) {
+      removeItemFromBox(removeButton.dataset.boxId, removeButton.dataset.itemId);
+    }
   });
 
   els.btnDeleteBox.addEventListener("click", () => {
@@ -518,6 +624,22 @@ function bindEvents() {
 function fillCategorySelects() {
   els.filterCategory.innerHTML = `<option value="all">Alle kategorier</option>` + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
   els.boxCategory.innerHTML = categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+}
+
+function fillBoxTypeControls() {
+  const options = getBoxTypeOptions();
+  const html = options.map(type => `<option value="${escapeHtml(type.id)}">${escapeHtml(type.label)} / ${escapeHtml(type.name)} / ${type.slots} slots</option>`).join("")
+    + `<option value="custom">Custom</option>`;
+  els.manualBoxType.innerHTML = html;
+  els.boxType.innerHTML = html;
+  syncManualCustomFields();
+  syncDialogBoxTypeFields();
+}
+
+function fillItemDatalist() {
+  els.itemOptions.innerHTML = commonItemCatalog
+    .map(item => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.category)}</option>`)
+    .join("");
 }
 
 function renderTemplates() {
@@ -597,6 +719,60 @@ function renderStorageRow(type) {
       ${type.fixed ? `<span class="storage-fixed">Primær</span>` : `<button class="ghost storage-remove" type="button" data-remove-storage="${escapeHtml(type.id)}">Fjern</button>`}
     </div>
   `;
+}
+
+function createManualBoxes() {
+  const count = Math.max(toAmount(els.manualBoxCount.value), 1);
+  const selectedType = getSelectedManualBoxType();
+  const prefix = (els.manualBoxPrefix.value.trim() || selectedType.label || "Boks").slice(0, 60);
+  const boxes = Array.from({ length: count }, (_, index) => {
+    const number = index + 1;
+    return {
+      id: newId(),
+      name: `${prefix} ${number}`.trim(),
+      category: "Diverse",
+      boxType: selectedType.label,
+      slots: selectedType.slots,
+      location: "",
+      items: [],
+      notes: ""
+    };
+  });
+
+  state.boxes = [...state.boxes, ...boxes];
+  saveState();
+  render();
+}
+
+function getSelectedManualBoxType() {
+  const selectedId = els.manualBoxType.value;
+  if (selectedId === "custom") {
+    return {
+      id: "custom",
+      label: (els.manualCustomType.value.trim() || "Custom").slice(0, 60),
+      name: "Custom",
+      slots: Math.max(toAmount(els.manualCustomSlots.value), 1)
+    };
+  }
+  return getBoxTypeById(selectedId) || getBoxTypeOptions()[0];
+}
+
+function syncManualCustomFields() {
+  const isCustom = els.manualBoxType.value === "custom";
+  document.querySelectorAll(".manual-custom-field").forEach(field => field.classList.toggle("hidden", !isCustom));
+  const selectedType = getBoxTypeById(els.manualBoxType.value);
+  if (selectedType && els.manualBoxPrefix.value.trim() === "") {
+    els.manualBoxPrefix.placeholder = `Fx ${selectedType.label}`;
+  }
+}
+
+function syncDialogBoxTypeFields(updateSlots = false) {
+  const isCustom = els.boxType.value === "custom";
+  document.querySelectorAll(".box-custom-type-field").forEach(field => field.classList.toggle("hidden", !isCustom));
+  const selectedType = getBoxTypeById(els.boxType.value);
+  if (selectedType && updateSlots) {
+    els.boxSlots.value = selectedType.slots;
+  }
 }
 
 function updateStorageType(id, field, value) {
@@ -727,6 +903,8 @@ function createGeneratedBox(recipe, index, storageTypes) {
     id: newId(),
     name: recipe.name,
     category: normalizeCategory(recipe.category, "Diverse"),
+    boxType: assignedStorage?.baseLabel || "Custom",
+    slots: assignedStorage?.slots || 48,
     location: assignedStorage ? `${assignedStorage.label} · ${assignedStorage.slots} slots · ${role}` : role,
     items: recipe.items.map(itemName => createGeneratedItem(itemName, recipe.category)),
     notes: `Genereret layout (${role}). ${assignedStorage ? `Planlagt i ${assignedStorage.label}.` : ""}`
@@ -894,6 +1072,7 @@ function renderBoxes() {
     const haystack = [
       box.name,
       box.category,
+      box.boxType,
       box.location,
       box.notes,
       ...(box.items || []).flatMap(item => [
@@ -928,6 +1107,7 @@ function renderBoxes() {
         <div>
           <h3>${escapeHtml(box.name)}</h3>
           <div class="location">${escapeHtml(box.location || "Ingen placering angivet")}</div>
+          ${renderBoxCapacity(box)}
         </div>
         <span class="category-pill">${escapeHtml(box.category)}</span>
       </header>
@@ -935,6 +1115,8 @@ function renderBoxes() {
       <ul class="item-list">
         ${(box.items || []).map(item => renderItemRow(item, box)).join("") || `<li class="empty-item">Ingen items endnu</li>`}
       </ul>
+
+      ${renderAddItemForm(box)}
 
       ${box.notes ? `<div class="notes">${escapeHtml(box.notes)}</div>` : ""}
 
@@ -957,6 +1139,23 @@ function renderBoxes() {
   els.boxGrid.querySelectorAll("[data-note-field]").forEach(input => {
     input.addEventListener("input", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.noteField, input.value, false));
     input.addEventListener("change", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.noteField, input.value));
+  });
+  els.boxGrid.querySelectorAll("[data-item-meta-field]").forEach(input => {
+    input.addEventListener("change", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.itemMetaField, input.value));
+  });
+  els.boxGrid.querySelectorAll("[data-add-item-name]").forEach(input => {
+    input.addEventListener("input", () => applyItemDefaultsToForm(input.closest(".manual-add-item"), input.value));
+    input.addEventListener("change", () => applyItemDefaultsToForm(input.closest(".manual-add-item"), input.value));
+  });
+  els.boxGrid.querySelectorAll(".manual-add-item").forEach(form => {
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      addManualItem(form.dataset.addBoxId);
+    });
+    form.querySelector('button[type="submit"]')?.addEventListener("click", event => {
+      event.preventDefault();
+      addManualItem(form.dataset.addBoxId);
+    });
   });
 }
 
@@ -997,15 +1196,82 @@ function renderItemRow(item, box) {
         <span>Egen note</span>
         <input type="text" value="${escapeHtml(item.customNote || "")}" placeholder="Server-note, fx køb ved Outpost" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-note-field="customNote" aria-label="Egen note for ${escapeHtml(item.name)}" />
       </label>
+      <label class="item-category-edit">
+        <span>Vælg kategori</span>
+        <select data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-item-meta-field="category" aria-label="Kategori for ${escapeHtml(item.name)}">
+          ${renderCategoryOptions(item.category || box.category)}
+        </select>
+      </label>
       <div class="item-guide-line">Findes lettest: ${escapeHtml(guide.bestSource)} · Tip: ${escapeHtml(guide.tip)}</div>
       <div class="item-actions">
         <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="-1">-1</button>
         <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="1">+1</button>
         <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-adjust-item="stack">+ stack</button>
         <button class="ghost qty-btn" type="button" data-edit-box="${escapeHtml(box.id)}">Ret</button>
+        <label class="move-target">
+          <span>Flyt til anden boks</span>
+          <select data-move-target="${escapeHtml(item.id)}" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}">
+            ${renderMoveBoxOptions(box.id)}
+          </select>
+        </label>
+        <button class="ghost qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-move-item="true">Flyt</button>
+        <button class="danger qty-btn" type="button" data-box-id="${escapeHtml(box.id)}" data-item-id="${escapeHtml(item.id)}" data-remove-item="true">Fjern</button>
       </div>
     </li>
   `;
+}
+
+function renderBoxCapacity(box) {
+  const usedLines = (box.items || []).length;
+  const slots = getBoxSlots(box);
+  const overCapacity = slots > 0 && usedLines > slots;
+  const label = `${getBoxTypeLabel(box)} — ${usedLines}/${slots} linjer`;
+  return `<div class="box-capacity ${overCapacity ? "over-capacity" : ""}">${escapeHtml(label)}${overCapacity ? ` <strong>Over kapacitet</strong>` : ""}</div>`;
+}
+
+function renderAddItemForm(box) {
+  return `
+    <form class="manual-add-item" data-add-box-id="${escapeHtml(box.id)}">
+      <div class="manual-add-heading">
+        <strong>Tilføj item</strong>
+        <small>Vælg item fra dropdown eller skriv selv.</small>
+      </div>
+      <label>
+        <span>Vælg item</span>
+        <input type="text" list="itemOptions" data-add-item-name="${escapeHtml(box.id)}" placeholder="Fx Pistol Bullets" autocomplete="off" />
+      </label>
+      <label>
+        <span>Vælg kategori</span>
+        <select data-add-field="category">${renderCategoryOptions(box.category)}</select>
+      </label>
+      <label>
+        <span>Nuværende</span>
+        <input type="number" min="0" step="1" inputmode="numeric" value="0" data-add-field="currentAmount" />
+      </label>
+      <label>
+        <span>Min</span>
+        <input type="number" min="0" step="1" inputmode="numeric" value="0" data-add-field="minAmount" />
+      </label>
+      <label>
+        <span>Max</span>
+        <input type="number" min="0" step="1" inputmode="numeric" value="0" data-add-field="maxAmount" />
+      </label>
+      <label class="manual-note">
+        <span>Egen note</span>
+        <input type="text" data-add-field="customNote" placeholder="Server-note" />
+      </label>
+      <button class="secondary" type="submit">Tilføj</button>
+    </form>
+  `;
+}
+
+function renderCategoryOptions(selectedCategory) {
+  const selected = normalizeCategory(selectedCategory, "Diverse");
+  return categories.map(category => `<option value="${escapeHtml(category)}" ${category === selected ? "selected" : ""}>${escapeHtml(category)}</option>`).join("");
+}
+
+function renderMoveBoxOptions(currentBoxId) {
+  return state.boxes.map(box => `<option value="${escapeHtml(box.id)}" ${box.id === currentBoxId ? "selected" : ""}>${escapeHtml(box.name)}</option>`).join("");
 }
 
 function openBoxDialog(id = null) {
@@ -1014,6 +1280,7 @@ function openBoxDialog(id = null) {
   els.boxId.value = box?.id ?? "";
   els.boxName.value = box?.name ?? "";
   els.boxCategory.value = box?.category ?? categories[0];
+  setDialogBoxType(box);
   els.boxLocation.value = box?.location ?? "";
   els.boxItems.value = box ? (box.items || []).map(item => formatItemLine(item, box.category)).join("\n") : "";
   els.boxNotes.value = box?.notes ?? "";
@@ -1032,10 +1299,13 @@ function saveBoxFromDialog() {
     .map(line => parseItemLine(line, oldBox, els.boxCategory.value))
     .filter(Boolean);
 
+  const selectedBoxType = getSelectedDialogBoxType();
   const box = {
     id,
     name: els.boxName.value.trim(),
     category: els.boxCategory.value,
+    boxType: selectedBoxType.label,
+    slots: selectedBoxType.slots,
     location: els.boxLocation.value.trim(),
     items,
     notes: els.boxNotes.value.trim()
@@ -1059,6 +1329,8 @@ function addTemplate(template) {
     id: newId(),
     name,
     category: template.category,
+    boxType: "Stor boks",
+    slots: 48,
     location: template.location,
     items: template.items.map(item => createTemplateItem(item, template.category)),
     notes: template.notes
@@ -1068,8 +1340,12 @@ function addTemplate(template) {
 }
 
 function updateItemField(boxId, itemId, field, value, rerender = true) {
-  if (!["currentAmount", "minAmount", "maxAmount", "customNote"].includes(field)) return;
-  const nextValue = field === "customNote" ? String(value || "").slice(0, 240) : toAmount(value);
+  if (!["currentAmount", "minAmount", "maxAmount", "customNote", "category"].includes(field)) return;
+  const nextValue = field === "customNote"
+    ? String(value || "").slice(0, 240)
+    : field === "category"
+      ? normalizeCategory(value, "Diverse")
+      : toAmount(value);
   state.boxes = state.boxes.map(box => {
     if (box.id !== boxId) return box;
     return {
@@ -1084,6 +1360,80 @@ function updateItemField(boxId, itemId, field, value, rerender = true) {
     renderStats();
     renderMissingList();
   }
+}
+
+function addManualItem(boxId) {
+  const form = els.boxGrid.querySelector(`.manual-add-item[data-add-box-id="${cssEscape(boxId)}"]`);
+  if (!form) return;
+  const itemName = form.querySelector("[data-add-item-name]")?.value.trim();
+  if (!itemName) {
+    alert("Vælg item først.");
+    return;
+  }
+
+  const category = normalizeCategory(form.querySelector('[data-add-field="category"]')?.value, getSuggestedCategory(itemName));
+  const item = {
+    id: newId(),
+    name: itemName.slice(0, 80),
+    category,
+    currentAmount: toAmount(form.querySelector('[data-add-field="currentAmount"]')?.value),
+    minAmount: toAmount(form.querySelector('[data-add-field="minAmount"]')?.value),
+    maxAmount: toAmount(form.querySelector('[data-add-field="maxAmount"]')?.value),
+    customNote: String(form.querySelector('[data-add-field="customNote"]')?.value || "").slice(0, 240)
+  };
+
+  state.boxes = state.boxes.map(box => {
+    if (box.id !== boxId) return box;
+    return { ...box, items: [...(box.items || []), item] };
+  });
+  saveState();
+  render();
+}
+
+function applyItemDefaultsToForm(form, itemName) {
+  if (!form || !itemName) return;
+  const exactItem = itemCatalog.get(normalizeItemKey(itemName));
+  if (!exactItem && !defaultItemRanges.has(normalizeItemKey(itemName))) return;
+  const categoryInput = form.querySelector('[data-add-field="category"]');
+  const minInput = form.querySelector('[data-add-field="minAmount"]');
+  const maxInput = form.querySelector('[data-add-field="maxAmount"]');
+  const range = getDefaultRange(itemName);
+  if (categoryInput) categoryInput.value = getSuggestedCategory(itemName);
+  if (minInput) minInput.value = range.minAmount;
+  if (maxInput) maxInput.value = range.maxAmount;
+}
+
+function moveItemToBox(boxId, itemId) {
+  const targetSelect = els.boxGrid.querySelector(`select[data-move-target="${cssEscape(itemId)}"][data-box-id="${cssEscape(boxId)}"]`);
+  const targetBoxId = targetSelect?.value;
+  if (!targetBoxId || targetBoxId === boxId) return;
+  const sourceBox = state.boxes.find(box => box.id === boxId);
+  const item = sourceBox?.items?.find(entry => entry.id === itemId);
+  if (!item) return;
+
+  state.boxes = state.boxes.map(box => {
+    if (box.id === boxId) {
+      return { ...box, items: (box.items || []).filter(entry => entry.id !== itemId) };
+    }
+    if (box.id === targetBoxId) {
+      return { ...box, items: [...(box.items || []), item] };
+    }
+    return box;
+  });
+  saveState();
+  render();
+}
+
+function removeItemFromBox(boxId, itemId) {
+  const sourceBox = state.boxes.find(box => box.id === boxId);
+  const item = sourceBox?.items?.find(entry => entry.id === itemId);
+  if (!item) return;
+  if (!confirm(`Fjern "${item.name}" fra boksen?`)) return;
+  state.boxes = state.boxes.map(box => box.id === boxId
+    ? { ...box, items: (box.items || []).filter(entry => entry.id !== itemId) }
+    : box);
+  saveState();
+  render();
 }
 
 function adjustItemAmount(boxId, itemId, adjustment) {
@@ -1319,6 +1669,7 @@ function getLayoutStatus(summary) {
 function getNthPhysicalStorage(storageTypes, index) {
   const expanded = storageTypes.flatMap(type => Array.from({ length: toAmount(type.count) }, (_, countIndex) => ({
     label: type.label || type.name || "Custom box",
+    baseLabel: type.label || type.name || "Custom box",
     slots: toAmount(type.slots),
     number: countIndex + 1
   })));
@@ -1350,6 +1701,72 @@ function toAmount(value) {
 
 function isAmountLike(value) {
   return value !== "" && Number.isFinite(Number(value));
+}
+
+function getBoxTypeOptions() {
+  return defaultStorageTypes.map(type => ({ ...type }));
+}
+
+function getBoxTypeById(id) {
+  return getBoxTypeOptions().find(type => type.id === id);
+}
+
+function getBoxTypeByLabel(label) {
+  const normalized = normalizeItemKey(label);
+  return getBoxTypeOptions().find(type =>
+    normalizeItemKey(type.label) === normalized ||
+    normalizeItemKey(type.name) === normalized ||
+    normalizeItemKey(type.id) === normalized
+  );
+}
+
+function sanitizeBoxTypeLabel(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "Custom";
+  const type = getBoxTypeByLabel(raw);
+  return type?.label || raw.slice(0, 60);
+}
+
+function getBoxTypeSlots(label) {
+  return getBoxTypeByLabel(label)?.slots || 48;
+}
+
+function getBoxSlots(box) {
+  return Math.max(toAmount(box?.slots ?? getBoxTypeSlots(box?.boxType)), 1);
+}
+
+function getBoxTypeLabel(box) {
+  return sanitizeBoxTypeLabel(box?.boxType || "Custom");
+}
+
+function getSuggestedCategory(itemName) {
+  const key = normalizeItemKey(itemName);
+  const catalogItem = itemCatalog.get(key);
+  const guide = itemGuides.get(key);
+  return normalizeCategory(catalogItem?.category || guide?.category, "Diverse");
+}
+
+function getSelectedDialogBoxType() {
+  if (els.boxType.value === "custom") {
+    return {
+      label: (els.boxCustomType.value.trim() || "Custom").slice(0, 60),
+      slots: Math.max(toAmount(els.boxSlots.value), 1)
+    };
+  }
+  const selectedType = getBoxTypeById(els.boxType.value) || getBoxTypeOptions()[0];
+  return {
+    label: selectedType.label,
+    slots: Math.max(toAmount(els.boxSlots.value || selectedType.slots), 1)
+  };
+}
+
+function setDialogBoxType(box) {
+  const boxType = sanitizeBoxTypeLabel(box?.boxType || "Stor boks");
+  const matchedType = getBoxTypeByLabel(boxType);
+  els.boxType.value = matchedType?.id || "custom";
+  els.boxCustomType.value = matchedType ? "" : boxType;
+  els.boxSlots.value = Math.max(toAmount(box?.slots ?? matchedType?.slots ?? 48), 1);
+  syncDialogBoxTypeFields();
 }
 
 function normalizeCategory(value, fallback = "Diverse") {
@@ -1451,6 +1868,10 @@ async function connectLive() {
       }
 
       hasHandledInitialSnapshot = true;
+      const remoteUpdatedAt = toAmount(value.updatedAt);
+      if (lastLocalChangeAt && (!remoteUpdatedAt || remoteUpdatedAt < lastLocalChangeAt)) {
+        return;
+      }
       applyingRemote = true;
       state = sanitizeState(value);
       localStorage.setItem(localStateKey(activeGroup), JSON.stringify(state));
@@ -1502,7 +1923,10 @@ function updatePresence() {
 function saveState() {
   state = sanitizeState(state);
   localStorage.setItem(localStateKey(activeGroup || "local"), JSON.stringify(state));
-  if (activeGroup && planRef && !applyingRemote) queueRemoteSave();
+  if (activeGroup && planRef && !applyingRemote) {
+    lastLocalChangeAt = Date.now();
+    queueRemoteSave();
+  }
 }
 
 function toFirebaseBoxes(boxes) {
@@ -1542,11 +1966,14 @@ async function pushStateNow() {
     storageLayout: sanitizeStorageLayout(state.storageLayout),
     updatedAt: Date.now(),
     updatedBy: getPlayerName(),
-    version: 8
+    version: 9
   };
 
   try {
     await set(planRef, payload);
+    if (lastLocalChangeAt <= payload.updatedAt) {
+      lastLocalChangeAt = 0;
+    }
     setFirebaseStatus("online", `Live: ${activeGroup}`);
     updateLastUpdated(payload.updatedAt, payload.updatedBy);
   } catch (error) {
@@ -1581,10 +2008,13 @@ function sanitizeState(value) {
 
 function sanitizeBox(box) {
   const category = normalizeCategory(box?.category, "Diverse");
+  const boxType = sanitizeBoxTypeLabel(box?.boxType ?? box?.type ?? box?.storageType);
   return {
     id: String(box?.id || newId()),
     name: String(box?.name || "Unavngivet boks").slice(0, 80),
     category,
+    boxType,
+    slots: Math.max(toAmount(box?.slots ?? box?.capacity ?? getBoxTypeSlots(boxType)), 1),
     location: String(box?.location || "").slice(0, 140),
     notes: String(box?.notes || "").slice(0, 1000),
     items: fromFirebaseList(box?.items).map(item => sanitizeItem(item, category)).slice(0, 80)

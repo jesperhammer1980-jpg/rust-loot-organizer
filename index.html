@@ -12,7 +12,7 @@
     <div>
       <p class="eyebrow">Rust helper · live group planner</p>
       <h1>Loot Organizer</h1>
-      <p id="versionLabel" class="version-label">Rust Loot Organizer — v0.8-test</p>
+      <p id="versionLabel" class="version-label">Rust Loot Organizer — v0.9-test</p>
       <p class="subtitle">Fælles loot-plan for gruppen. Notér hvad der skal ligge i hver storage box, følg mængder og se ændringer live.</p>
     </div>
     <div class="header-actions">
@@ -86,20 +86,55 @@
           <option value="all">Alle kategorier</option>
         </select>
       </div>
-      <button id="btnAddBox" class="primary">+ Ny boks</button>
+      <button id="btnAddBox" class="primary">Tilføj boks</button>
       <button id="btnTemplates" class="secondary">Indsæt standard setup</button>
+    </section>
+
+    <section class="panel manual-setup">
+      <div class="panel-heading">
+        <div>
+          <h2>Manuel boksopsætning</h2>
+          <p>Manuel opsætning er normal workflow: opret bokse, vælg box type og placer items præcis hvor I vil have dem.</p>
+        </div>
+      </div>
+      <div class="manual-content">
+        <div class="manual-form">
+          <div class="field">
+            <label for="manualBoxType">Box type</label>
+            <select id="manualBoxType"></select>
+          </div>
+          <div class="field">
+            <label for="manualBoxCount">Antal bokse</label>
+            <input id="manualBoxCount" type="number" min="1" step="1" inputmode="numeric" value="1" />
+          </div>
+          <div class="field grow">
+            <label for="manualBoxPrefix">Box navn</label>
+            <input id="manualBoxPrefix" type="text" placeholder="Fx Loot" />
+          </div>
+          <div class="field manual-custom-field">
+            <label for="manualCustomType">Custom navn</label>
+            <input id="manualCustomType" type="text" placeholder="Fx Ammo shelf" />
+          </div>
+          <div class="field manual-custom-field">
+            <label for="manualCustomSlots">Slots</label>
+            <input id="manualCustomSlots" type="number" min="1" step="1" inputmode="numeric" value="24" />
+          </div>
+          <button id="btnCreateManualBoxes" class="primary" type="button">Opret bokse</button>
+        </div>
+        <p class="storage-note">Slot-beregning er vejledende og baseret på item-linjer, ikke fuld Rust stack-simulation.</p>
+      </div>
     </section>
 
     <section class="panel storage-generator">
       <div class="panel-heading">
         <div>
           <h2>Storage layout generator</h2>
-          <p>Vælg hvilke bokse I har, og generér et realistisk loot-layout med Min/Max mål.</p>
+          <p>Valgfri helper: brug den når I vil starte hurtigt. Genererede bokse kan redigeres manuelt bagefter.</p>
         </div>
       </div>
       <div class="storage-content">
         <div class="storage-toolbar">
-          <h3>Hvilke bokse har I?</h3>
+          <h3>Generér layout automatisk</h3>
           <div class="storage-buttons">
             <button id="btnRecommendedStorage" class="secondary" type="button">Brug anbefalet setup</button>
             <button id="btnAddStorageType" class="ghost" type="button">+ Custom box type</button>
@@ -110,7 +145,7 @@
         <div class="storage-summary" id="storageSummary"></div>
         <p class="storage-note">Slot-beregning er vejledende og baseret på item-linjer, ikke fuld Rust stack-simulation.</p>
         <div class="storage-generate-row">
-          <button id="btnGenerateLayout" class="primary" type="button">Generér layout</button>
+          <button id="btnGenerateLayout" class="primary" type="button">Generér layout automatisk</button>
           <span id="layoutStatus" class="layout-status">Ingen layout genereret endnu.</span>
         </div>
       </div>
@@ -170,6 +205,18 @@
           <label for="boxCategory">Kategori</label>
           <select id="boxCategory"></select>
         </div>
+        <div class="field">
+          <label for="boxType">Box type</label>
+          <select id="boxType"></select>
+        </div>
+        <div class="field">
+          <label for="boxSlots">Slots</label>
+          <input id="boxSlots" type="number" min="1" step="1" inputmode="numeric" value="48" />
+        </div>
+        <div class="field full box-custom-type-field">
+          <label for="boxCustomType">Custom box type</label>
+          <input id="boxCustomType" type="text" placeholder="Fx Ammo shelf" />
+        </div>
         <div class="field full">
           <label for="boxLocation">Placering i basen</label>
           <input id="boxLocation" type="text" placeholder="Fx loot room venstre side, øverste boks" />
@@ -192,6 +239,8 @@
       </div>
     </form>
   </dialog>
+
+  <datalist id="itemOptions"></datalist>
 
   <script src="firebase-config.js"></script>
   <script type="module" src="app.js"></script>
