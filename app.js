@@ -3,7 +3,7 @@ import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstati
 
 const LOCAL_SETTINGS_KEY = "rust-loot-live-settings-v2";
 const LOCAL_LANGUAGE_KEY = "rust-loot-language-v1";
-const APP_VERSION = "v1.1.1-test";
+const APP_VERSION = "v1.1.2-test";
 const LAYOUT_PRESET_VERSION = "v0.8";
 const RECOMMENDED_MIN_SLOTS = 360;
 const MAX_AUTOCOMPLETE_RESULTS = 8;
@@ -2197,19 +2197,19 @@ function renderAddItemForm(box) {
           <div class="autocomplete-list hidden" id="item-suggestions-${escapeHtml(box.id)}" data-autocomplete-list role="listbox" aria-label="${escapeHtml(t("itemSuggestions"))}"></div>
         </div>
       </label>
-      <label>
+      <label class="manual-field manual-field-category">
         <span>${escapeHtml(t("chooseCategory"))}</span>
         <select data-add-field="category">${renderCategoryOptions(box.category)}</select>
       </label>
-      <label>
+      <label class="manual-field manual-field-number manual-field-current">
         <span>${escapeHtml(t("current"))}</span>
         <input type="number" min="0" step="1" inputmode="numeric" value="0" data-add-field="currentAmount" />
       </label>
-      <label>
+      <label class="manual-field manual-field-number manual-field-min">
         <span>${escapeHtml(t("min"))}</span>
         <input type="number" min="0" step="1" inputmode="numeric" value="0" data-add-field="minAmount" />
       </label>
-      <label>
+      <label class="manual-field manual-field-number manual-field-max">
         <span>${escapeHtml(t("max"))}</span>
         <input type="number" min="0" step="1" inputmode="numeric" value="0" data-add-field="maxAmount" />
       </label>
@@ -2217,7 +2217,7 @@ function renderAddItemForm(box) {
         <span>${escapeHtml(t("customNote"))}</span>
         <input type="text" data-add-field="customNote" placeholder="${escapeHtml(t("customNotePlaceholder"))}" />
       </label>
-      <button class="secondary" type="submit">${escapeHtml(t("add"))}</button>
+      <button class="secondary manual-submit" type="submit">${escapeHtml(t("add"))}</button>
     </form>
   `;
 }

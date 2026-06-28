@@ -129,11 +129,14 @@ main { max-width: 1500px; margin: 0 auto; padding: 1rem clamp(1rem, 3vw, 3rem) 3
   align-items: center;
   justify-content: center;
   min-width: 120px;
+  max-width: 100%;
   border-radius: 999px;
   padding: .4rem .7rem;
   font-size: .82rem;
   font-weight: 800;
   white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 .status-badge.offline { background: rgba(201,95,80,.16); color: #ffc0b8; border: 1px solid rgba(201,95,80,.35); }
 .status-badge.connecting { background: rgba(240,154,67,.15); color: #ffd2a1; border: 1px solid rgba(240,154,67,.35); }
@@ -411,16 +414,18 @@ button, .import-label {
 
 .box-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: 1rem;
 }
 
 .loot-box {
   padding: 1rem;
+  min-width: 0;
   min-height: 230px;
   display: flex;
   flex-direction: column;
   gap: .85rem;
+  container-type: inline-size;
 }
 .loot-box header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
 .loot-box h3 { margin: 0; font-size: 1.05rem; }
@@ -551,10 +556,13 @@ button, .import-label {
 }
 .manual-add-item {
   display: grid;
-  grid-template-columns: minmax(160px, 1.1fr) minmax(130px, .8fr) repeat(3, minmax(82px, .55fr)) minmax(140px, 1fr) auto;
-  gap: .45rem;
-  align-items: end;
-  padding: .7rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .65rem;
+  align-items: start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: .75rem;
   border: 1px solid rgba(255,255,255,.07);
   border-radius: 12px;
   background: rgba(255,255,255,.025);
@@ -571,19 +579,28 @@ button, .import-label {
   display: grid;
   gap: .22rem;
   min-width: 0;
+  max-width: 100%;
+}
+.manual-add-item input,
+.manual-add-item select {
+  min-width: 0;
+  max-width: 100%;
+}
+.manual-field-number input {
+  padding-left: .55rem;
+  padding-right: .55rem;
 }
 .item-autocomplete-field { position: relative; }
 .autocomplete-wrap {
+  display: grid;
+  gap: .35rem;
   position: relative;
   min-width: 0;
   max-width: 100%;
 }
 .autocomplete-list {
-  position: absolute;
+  position: static;
   z-index: 30;
-  top: calc(100% + .35rem);
-  left: 0;
-  right: 0;
   width: 100%;
   min-width: 100%;
   max-width: 100%;
@@ -648,16 +665,52 @@ button, .import-label {
   line-height: 1.35;
   padding: .55rem;
 }
-.manual-add-item button {
+.manual-add-item > button {
   min-height: 34px;
   padding: .35rem .65rem;
   border-radius: 8px;
   white-space: nowrap;
 }
+.manual-submit {
+  width: 100%;
+  max-width: 100%;
+  align-self: end;
+}
 .manual-add-item .autocomplete-option {
   min-height: 50px;
   padding: .62rem .7rem;
   white-space: normal;
+}
+
+@container (min-width: 420px) {
+  .manual-add-item {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: .55rem;
+  }
+  .manual-add-heading {
+    grid-column: 1 / -1;
+  }
+  .manual-add-item .item-autocomplete-field {
+    grid-column: 1 / span 4;
+  }
+  .manual-field-category {
+    grid-column: 5 / span 2;
+  }
+  .manual-field-current {
+    grid-column: 1 / span 2;
+  }
+  .manual-field-min {
+    grid-column: 3 / span 2;
+  }
+  .manual-field-max {
+    grid-column: 5 / span 2;
+  }
+  .manual-note {
+    grid-column: 1 / span 4;
+  }
+  .manual-submit {
+    grid-column: 5 / span 2;
+  }
 }
 .empty-item {
   padding: .7rem;
@@ -723,9 +776,8 @@ button, .import-label {
   .checklist { position: static; }
   .manual-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .manual-form button { width: 100%; }
-  .manual-add-item { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .manual-add-heading { display: grid; }
-  .manual-add-item button { width: 100%; }
+  .manual-add-item > button { width: 100%; }
   .storage-summary { grid-template-columns: repeat(2, 1fr); }
 }
 
@@ -734,6 +786,12 @@ button, .import-label {
   .stats-card.warning { grid-column: 1 / -1; }
   .form-grid { grid-template-columns: 1fr; }
   .controls button, .controls .import-label, .header-actions button, .header-actions .import-label, .live-controls button { width: 100%; }
+  .status-badge {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    line-height: 1.25;
+  }
   .item-main { flex-direction: column; gap: .35rem; }
   .item-category { align-self: flex-start; }
   .item-quantity-grid { grid-template-columns: 1fr 1fr; }
@@ -743,7 +801,7 @@ button, .import-label {
   .todo-topline { flex-direction: column; }
   .todo-actions .todo-action { flex: 1 1 120px; }
   .manual-form, .manual-add-item { grid-template-columns: 1fr; }
-  .manual-form button, .manual-add-item button { width: 100%; }
+  .manual-form button, .manual-add-item > button { width: 100%; }
   .autocomplete-list {
     max-height: min(320px, 52vh);
     gap: .5rem;

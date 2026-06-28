@@ -1,4 +1,4 @@
-# Rust Loot Organizer Live - v1.1.1-test
+# Rust Loot Organizer Live - v1.1.2-test
 
 Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Database.
 
@@ -6,9 +6,19 @@ Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Data
 
 Alle nye ændringer skal laves og testes på en test-branch først. Denne version ligger på:
 
-`test/v1.1-autocomplete-mobile-ui-fix`
+`test/v1.1-item-form-layout-fix`
 
 Merge ikke til `main`, før test-versionen er godkendt. GitHub Pages live-siden deployer stadig fra `main`.
+
+## Hvad er ændret i v1.1.2-test
+
+v1.1.2-test retter layoutet for `Tilføj item` inde i hver storage box:
+
+- formularen er nu indeholdt i box-kortet og bryder ikke vandret ud
+- desktop/tablet bruger en opdelt grid med item/kategori, mængder og note/knap
+- smalle kort og mobil stabler felterne lodret
+- autocomplete-forslag vises under item-feltet inde i formularen
+- forslaglisten har kun vertikal scroll og ingen horisontal overflow
 
 ## Hvad er ændret i v1.1.1-test
 
@@ -125,7 +135,7 @@ Print viser box navn, box type, slots, item, current/min/max, missing to min og 
 
 Hvis andre ikke kan forbinde:
 
-1. Tjek at test-preview har version-label `v1.1.1-test`.
+1. Tjek at test-preview har version-label `v1.1.2-test`.
 2. Bed dem trykke Ctrl+F5 eller åbne linket i inkognito.
 3. Tjek at reglerne fra `database.rules.json` er published i Firebase.
 4. Tjek at alle bruger præcis samme gruppe-link eller samme gruppe-kode.
