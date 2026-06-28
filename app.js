@@ -3,7 +3,7 @@ import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstati
 
 const LOCAL_SETTINGS_KEY = "rust-loot-live-settings-v2";
 const LOCAL_LANGUAGE_KEY = "rust-loot-language-v1";
-const APP_VERSION = "v1.1-test";
+const APP_VERSION = "v1.1.1-test";
 const LAYOUT_PRESET_VERSION = "v0.8";
 const RECOMMENDED_MIN_SLOTS = 360;
 const MAX_AUTOCOMPLETE_RESULTS = 8;

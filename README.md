@@ -1,4 +1,4 @@
-# Rust Loot Organizer Live - v1.1-test
+# Rust Loot Organizer Live - v1.1.1-test
 
 Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Database.
 
@@ -6,9 +6,19 @@ Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Data
 
 Alle nye ændringer skal laves og testes på en test-branch først. Denne version ligger på:
 
-`test/v1.1-dynamic-search-autocomplete`
+`test/v1.1-autocomplete-mobile-ui-fix`
 
 Merge ikke til `main`, før test-versionen er godkendt. GitHub Pages live-siden deployer stadig fra `main`.
+
+## Hvad er ændret i v1.1.1-test
+
+v1.1.1-test er en lille UI-fix branch for autocomplete på mobil:
+
+- større forslag-rækker og bedre finger-tap afstand
+- større item navn og mere læsbar sekundær tekst
+- dropdown matcher input/card bredde
+- kun vertikal scroll i forslaglisten, ingen horisontal scroll
+- mobil 390px holder dropdown inde i viewport
 
 ## Hvad er ændret i v1.1-test
 
@@ -115,7 +125,7 @@ Print viser box navn, box type, slots, item, current/min/max, missing to min og 
 
 Hvis andre ikke kan forbinde:
 
-1. Tjek at test-preview har version-label `v1.1-test`.
+1. Tjek at test-preview har version-label `v1.1.1-test`.
 2. Bed dem trykke Ctrl+F5 eller åbne linket i inkognito.
 3. Tjek at reglerne fra `database.rules.json` er published i Firebase.
 4. Tjek at alle bruger præcis samme gruppe-link eller samme gruppe-kode.
