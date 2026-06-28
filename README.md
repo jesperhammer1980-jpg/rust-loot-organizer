@@ -1,4 +1,4 @@
-# Rust Loot Organizer Live - v1.0-test
+# Rust Loot Organizer Live - v1.1-test
 
 Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Database.
 
@@ -6,13 +6,23 @@ Fælles Rust loot-plan til GitHub Pages med live sync via Firebase Realtime Data
 
 Alle nye ændringer skal laves og testes på en test-branch først. Denne version ligger på:
 
-`test/v1.0-bilingual-items`
+`test/v1.1-dynamic-search-autocomplete`
 
 Merge ikke til `main`, før test-versionen er godkendt. GitHub Pages live-siden deployer stadig fra `main`.
 
-## Hvad er ændret i v1.0-test
+## Hvad er ændret i v1.1-test
 
-v1.0-test tilføjer bilingual Danish/English support oven på v0.9 manual box workflow:
+v1.1-test bygger på v1.0 bilingual items og tilføjer dynamisk item autocomplete:
+
+- forslag vises mens man skriver i `Tilføj item` / `Add item`
+- forslag søger i danske navne, canonical Rust navne, aliases og kategorier
+- valg af forslag sætter stabilt `itemId`
+- kategori, Min og Max auto-fyldes straks ved valg
+- keyboard support: pil op/ned, Enter og Escape
+- custom ukendte items kan stadig tilføjes uden match
+- autocomplete er mobilvenlig ved 390px
+
+v1.0-test tilføjede bilingual Danish/English support oven på v0.9 manual box workflow:
 
 - sprogskifter mellem `Dansk` og `English`
 - valgt sprog gemmes kun lokalt i browserens `localStorage`
@@ -48,7 +58,7 @@ Kendte box typer vises bilingualt:
 
 Hver boks har en `Tilføj item` / `Add item` form med:
 
-- item dropdown eller custom navn
+- dynamisk item autocomplete eller custom navn
 - kategori
 - `Nuværende` / `Current`
 - `Min`
@@ -57,7 +67,7 @@ Hver boks har en `Tilføj item` / `Add item` form med:
 
 Kendte items får auto-fill af kategori, Min og Max. Eksempel:
 
-`Pistol Bullet` auto-fylder `Ammo`, `Min 128` og `Max 512`.
+Hvis man vælger `Pistol Bullet` fra forslagene, sættes `itemId`, `Ammo`, `Min 128` og `Max 512`.
 
 To-do listen viser items hvor `Nuværende < Min` / `Current < Min`, inklusive manglende antal og `Hop til box` / `Jump to box`.
 
@@ -105,7 +115,7 @@ Print viser box navn, box type, slots, item, current/min/max, missing to min og 
 
 Hvis andre ikke kan forbinde:
 
-1. Tjek at test-preview har version-label `v1.0-test`.
+1. Tjek at test-preview har version-label `v1.1-test`.
 2. Bed dem trykke Ctrl+F5 eller åbne linket i inkognito.
 3. Tjek at reglerne fra `database.rules.json` er published i Firebase.
 4. Tjek at alle bruger præcis samme gruppe-link eller samme gruppe-kode.

@@ -3,9 +3,10 @@ import { getDatabase, ref, onValue, set, onDisconnect } from "https://www.gstati
 
 const LOCAL_SETTINGS_KEY = "rust-loot-live-settings-v2";
 const LOCAL_LANGUAGE_KEY = "rust-loot-language-v1";
-const APP_VERSION = "v1.0-test";
+const APP_VERSION = "v1.1-test";
 const LAYOUT_PRESET_VERSION = "v0.8";
 const RECOMMENDED_MIN_SLOTS = 360;
+const MAX_AUTOCOMPLETE_RESULTS = 8;
 
 const I18N = {
   da: {
@@ -83,6 +84,9 @@ const I18N = {
     addItemHelp: "Vælg item fra dropdown eller skriv selv.",
     chooseItem: "Vælg item",
     chooseCategory: "Vælg kategori",
+    itemSuggestions: "Item forslag",
+    noItemSuggestions: "Ingen kendte items matcher. Custom navn kan stadig tilføjes.",
+    autocompleteHint: "Brug pil op/ned og Enter for at vælge.",
     current: "Nuværende",
     min: "Min",
     max: "Max",
@@ -247,6 +251,9 @@ const I18N = {
     addItemHelp: "Choose an item from the dropdown or type your own.",
     chooseItem: "Choose item",
     chooseCategory: "Choose category",
+    itemSuggestions: "Item suggestions",
+    noItemSuggestions: "No known items match. You can still add a custom name.",
+    autocompleteHint: "Use arrow up/down and Enter to choose.",
     current: "Current",
     min: "Min",
     max: "Max",
@@ -1094,6 +1101,11 @@ function bindEvents() {
   els.btnExport.addEventListener("click", exportData);
   els.importFile.addEventListener("change", importData);
   els.btnPrint.addEventListener("click", () => window.print());
+  document.addEventListener("click", event => {
+    if (!event.target.closest(".autocomplete-wrap")) {
+      closeAllItemAutocompletes();
+    }
+  });
 
   els.boxForm.addEventListener("submit", event => {
     event.preventDefault();
@@ -1298,6 +1310,59 @@ function getItemSearchText(item) {
     item?.name,
     item?.originalName
   ].filter(Boolean).join(" ");
+}
+
+function getCategorySearchText(categoryId) {
+  const category = categoryById.get(normalizeCategory(categoryId, "other"));
+  if (!category) return "";
+  return [
+    category.id,
+    category.da,
+    category.en,
+    ...(category.aliases || [])
+  ].filter(Boolean).join(" ");
+}
+
+function getItemSuggestionSearchText(item) {
+  return [
+    item.id,
+    item.rustName,
+    item.daName,
+    item.enName,
+    getDanishItemOptionLabel(item),
+    getItemOptionLabel(item),
+    ...(item.aliases || []),
+    getCategorySearchText(item.categoryId)
+  ].filter(Boolean).join(" ");
+}
+
+function getItemSuggestions(query) {
+  const normalizedQuery = normalizeItemKey(query);
+  if (!normalizedQuery) return [];
+  const tokens = normalizedQuery.split(" ").filter(Boolean);
+  return ITEM_REGISTRY
+    .map(item => {
+      const searchText = normalizeItemKey(getItemSuggestionSearchText(item));
+      if (!tokens.every(token => searchText.includes(token))) return null;
+      const labels = [
+        item.rustName,
+        item.daName,
+        item.enName,
+        getDanishItemOptionLabel(item),
+        ...(item.aliases || [])
+      ].map(normalizeItemKey);
+      const categoryText = normalizeItemKey(getCategorySearchText(item.categoryId));
+      let score = 20;
+      if (labels.some(label => label === normalizedQuery)) score = 0;
+      else if (labels.some(label => label.startsWith(normalizedQuery))) score = 1;
+      else if (labels.some(label => tokens.every(token => label.includes(token)))) score = 5;
+      else if (categoryText.includes(normalizedQuery)) score = 10;
+      return { item, score, label: getItemOptionLabel(item) };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.score - b.score || a.label.localeCompare(b.label, currentLanguage === "da" ? "da" : "en"))
+    .slice(0, MAX_AUTOCOMPLETE_RESULTS)
+    .map(result => result.item);
 }
 
 function getStorageTypeDisplayLabel(type, language = currentLanguage) {
@@ -1880,8 +1945,21 @@ function renderBoxes() {
     input.addEventListener("change", () => updateItemField(input.dataset.boxId, input.dataset.itemId, input.dataset.itemMetaField, input.value));
   });
   els.boxGrid.querySelectorAll("[data-add-item-name]").forEach(input => {
-    input.addEventListener("input", () => applyItemDefaultsToForm(input.closest(".manual-add-item"), input.value));
+    input.addEventListener("input", () => handleItemAutocompleteInput(input));
+    input.addEventListener("focus", () => updateItemAutocomplete(input));
+    input.addEventListener("keydown", event => handleItemAutocompleteKeydown(event, input));
+    input.addEventListener("blur", () => window.setTimeout(() => closeItemAutocomplete(input), 120));
     input.addEventListener("change", () => applyItemDefaultsToForm(input.closest(".manual-add-item"), input.value));
+  });
+  els.boxGrid.querySelectorAll("[data-autocomplete-list]").forEach(list => {
+    list.addEventListener("mousedown", event => event.preventDefault());
+    list.addEventListener("click", event => {
+      const option = event.target.closest("[data-suggestion-id]");
+      if (!option) return;
+      const form = option.closest(".manual-add-item");
+      const input = form?.querySelector("[data-add-item-name]");
+      if (input) selectItemSuggestion(input, option.dataset.suggestionId);
+    });
   });
   els.boxGrid.querySelectorAll(".manual-add-item").forEach(form => {
     form.addEventListener("submit", event => {
@@ -1892,6 +1970,143 @@ function renderBoxes() {
       event.preventDefault();
       addManualItem(form.dataset.addBoxId);
     });
+  });
+}
+
+function handleItemAutocompleteInput(input) {
+  const form = input.closest(".manual-add-item");
+  const selectedIdInput = form?.querySelector('[data-add-field="itemId"]');
+  if (selectedIdInput) selectedIdInput.value = "";
+  input.dataset.selectedItemId = "";
+  updateItemAutocomplete(input);
+  applyItemDefaultsToForm(form, input.value);
+}
+
+function handleItemAutocompleteKeydown(event, input) {
+  const form = input.closest(".manual-add-item");
+  const list = form?.querySelector("[data-autocomplete-list]");
+  if (!list) return;
+  const options = Array.from(list.querySelectorAll("[data-suggestion-id]"));
+  const isOpen = !list.classList.contains("hidden");
+
+  if (event.key === "Escape") {
+    closeItemAutocomplete(input);
+    return;
+  }
+
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    if (!isOpen) {
+      updateItemAutocomplete(input);
+    }
+    const nextOptions = Array.from(list.querySelectorAll("[data-suggestion-id]"));
+    if (!nextOptions.length) return;
+    const currentIndex = getActiveAutocompleteIndex(form);
+    const offset = event.key === "ArrowDown" ? 1 : -1;
+    const nextIndex = currentIndex < 0
+      ? (offset > 0 ? 0 : nextOptions.length - 1)
+      : (currentIndex + offset + nextOptions.length) % nextOptions.length;
+    setActiveAutocompleteIndex(form, nextIndex);
+    return;
+  }
+
+  if (event.key === "Enter" && isOpen && options.length) {
+    event.preventDefault();
+    const activeIndex = Math.max(getActiveAutocompleteIndex(form), 0);
+    selectItemSuggestion(input, options[Math.min(activeIndex, options.length - 1)].dataset.suggestionId);
+  }
+}
+
+function updateItemAutocomplete(input) {
+  const form = input.closest(".manual-add-item");
+  const list = form?.querySelector("[data-autocomplete-list]");
+  if (!form || !list) return;
+  const query = input.value.trim();
+  if (!query) {
+    closeItemAutocomplete(input);
+    return;
+  }
+
+  const suggestions = getItemSuggestions(query);
+  if (!suggestions.length) {
+    form.dataset.autocompleteActiveIndex = "-1";
+    input.setAttribute("aria-expanded", "true");
+    input.removeAttribute("aria-activedescendant");
+    list.classList.remove("hidden");
+    list.innerHTML = `<div class="autocomplete-empty">${escapeHtml(t("noItemSuggestions"))}</div>`;
+    return;
+  }
+
+  const listId = list.id || `item-suggestions-${newId()}`;
+  list.id = listId;
+  input.setAttribute("aria-controls", listId);
+  list.innerHTML = suggestions.map((item, index) => renderItemSuggestionOption(item, index, listId)).join("");
+  list.classList.remove("hidden");
+  input.setAttribute("aria-expanded", "true");
+  setActiveAutocompleteIndex(form, 0);
+}
+
+function renderItemSuggestionOption(item, index, listId) {
+  const displayName = getItemOptionLabel(item);
+  const metaParts = currentLanguage === "da" && displayName !== item.rustName
+    ? [item.rustName, getCategoryLabel(item.categoryId)]
+    : [getCategoryLabel(item.categoryId)];
+  const range = `${t("min")} ${item.minAmount} / ${t("max")} ${formatMaxAmount(item.maxAmount)}`;
+  return `
+    <button class="autocomplete-option" id="${escapeHtml(listId)}-option-${index}" type="button" role="option" data-suggestion-id="${escapeHtml(item.id)}" aria-selected="false">
+      <span>${escapeHtml(displayName)}</span>
+      <small>${escapeHtml([...metaParts, range].join(" · "))}</small>
+    </button>
+  `;
+}
+
+function selectItemSuggestion(input, itemId) {
+  const item = itemRegistry.get(itemId);
+  if (!item) return;
+  const form = input.closest(".manual-add-item");
+  input.value = getItemOptionLabel(item);
+  input.dataset.selectedItemId = item.id;
+  const selectedIdInput = form?.querySelector('[data-add-field="itemId"]');
+  if (selectedIdInput) selectedIdInput.value = item.id;
+  applyItemDefaultsToForm(form, input.value, item);
+  closeItemAutocomplete(input);
+  input.focus();
+}
+
+function closeItemAutocomplete(input) {
+  const form = input?.closest(".manual-add-item");
+  const list = form?.querySelector("[data-autocomplete-list]");
+  if (!list) return;
+  list.classList.add("hidden");
+  list.innerHTML = "";
+  form.dataset.autocompleteActiveIndex = "-1";
+  input.setAttribute("aria-expanded", "false");
+  input.removeAttribute("aria-activedescendant");
+}
+
+function closeAllItemAutocompletes() {
+  els.boxGrid.querySelectorAll("[data-add-item-name]").forEach(input => closeItemAutocomplete(input));
+}
+
+function getActiveAutocompleteIndex(form) {
+  const index = Number(form?.dataset.autocompleteActiveIndex);
+  return Number.isFinite(index) ? index : -1;
+}
+
+function setActiveAutocompleteIndex(form, index) {
+  const list = form?.querySelector("[data-autocomplete-list]");
+  const input = form?.querySelector("[data-add-item-name]");
+  if (!form || !list || !input) return;
+  const options = Array.from(list.querySelectorAll("[data-suggestion-id]"));
+  form.dataset.autocompleteActiveIndex = String(index);
+  options.forEach((option, optionIndex) => {
+    const isActive = optionIndex === index;
+    option.classList.toggle("is-active", isActive);
+    option.setAttribute("aria-selected", String(isActive));
+    if (isActive) {
+      input.setAttribute("aria-activedescendant", option.id);
+      option.scrollIntoView({ block: "nearest" });
+    }
   });
 }
 
@@ -1974,9 +2189,13 @@ function renderAddItemForm(box) {
         <strong>${escapeHtml(t("addItem"))}</strong>
         <small>${escapeHtml(t("addItemHelp"))}</small>
       </div>
-      <label>
+      <label class="item-autocomplete-field">
         <span>${escapeHtml(t("chooseItem"))}</span>
-        <input type="text" list="itemOptions" data-add-item-name="${escapeHtml(box.id)}" placeholder="${escapeHtml(currentLanguage === "da" ? "Fx Pistolpatroner (Pistol Bullet)" : "Example: Pistol Bullet")}" autocomplete="off" />
+        <div class="autocomplete-wrap">
+          <input type="text" data-add-item-name="${escapeHtml(box.id)}" placeholder="${escapeHtml(currentLanguage === "da" ? "Fx Pistolpatroner (Pistol Bullet)" : "Example: Pistol Bullet")}" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="item-suggestions-${escapeHtml(box.id)}" />
+          <input type="hidden" data-add-field="itemId" />
+          <div class="autocomplete-list hidden" id="item-suggestions-${escapeHtml(box.id)}" data-autocomplete-list role="listbox" aria-label="${escapeHtml(t("itemSuggestions"))}"></div>
+        </div>
       </label>
       <label>
         <span>${escapeHtml(t("chooseCategory"))}</span>
@@ -2109,7 +2328,9 @@ function addManualItem(boxId) {
     return;
   }
 
-  const resolved = resolveItemName(itemName);
+  const selectedItemId = form.querySelector('[data-add-field="itemId"]')?.value;
+  const selectedItem = selectedItemId ? itemRegistry.get(selectedItemId) : null;
+  const resolved = selectedItem || resolveItemName(itemName);
   const category = normalizeCategory(form.querySelector('[data-add-field="category"]')?.value, resolved?.categoryId || getSuggestedCategory(itemName));
   const item = {
     id: newId(),
@@ -2131,15 +2352,15 @@ function addManualItem(boxId) {
   render();
 }
 
-function applyItemDefaultsToForm(form, itemName) {
+function applyItemDefaultsToForm(form, itemName, itemOverride = null) {
   if (!form || !itemName) return;
-  const exactItem = resolveItemName(itemName);
+  const exactItem = itemOverride || resolveItemName(itemName);
   if (!exactItem && !defaultItemRanges.has(normalizeItemKey(itemName))) return;
   const categoryInput = form.querySelector('[data-add-field="category"]');
   const minInput = form.querySelector('[data-add-field="minAmount"]');
   const maxInput = form.querySelector('[data-add-field="maxAmount"]');
-  const range = getDefaultRange(itemName);
-  if (categoryInput) categoryInput.value = getSuggestedCategory(itemName);
+  const range = exactItem ? { minAmount: exactItem.minAmount, maxAmount: exactItem.maxAmount } : getDefaultRange(itemName);
+  if (categoryInput) categoryInput.value = exactItem?.categoryId || getSuggestedCategory(itemName);
   if (minInput) minInput.value = range.minAmount;
   if (maxInput) maxInput.value = range.maxAmount;
 }
